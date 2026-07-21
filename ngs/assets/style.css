@@ -1,0 +1,216 @@
+/* Shared stylesheet for the NGS Foundations course.
+   Tufte-inspired: quiet, readable, prints well. Every lesson links this. */
+
+:root {
+  --ink: #1a1a1a;
+  --paper: #fdfcf9;
+  --muted: #6b6b6b;
+  --rule: #d8d4c8;
+  --accent: #7c4a2d;      /* warm brown, for links + emphasis */
+  --accent-soft: #f0e9df;
+  --p5: #2f6f8f;          /* flow-cell / P5 family */
+  --p7: #9c3d3d;          /* flow-cell / P7 family */
+  --index: #b8860b;       /* index barcodes */
+  --primer: #4a7c59;      /* sequencing primer sites */
+  --insert: #52505a;      /* the insert / DNA of interest */
+  --good: #2e7d4f;
+  --bad: #b23b3b;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --ink: #e8e4da;
+    --paper: #1c1b18;
+    --muted: #a09a8c;
+    --rule: #3a382f;
+    --accent: #d99a6c;
+    --accent-soft: #2a271f;
+  }
+}
+
+* { box-sizing: border-box; }
+
+html { -webkit-text-size-adjust: 100%; }
+
+body {
+  font-family: "Palatino Linotype", "Book Antiqua", Palatino, Georgia, serif;
+  color: var(--ink);
+  background: var(--paper);
+  line-height: 1.55;
+  max-width: 40rem;
+  margin: 0 auto;
+  padding: 3.5rem 1.5rem 6rem;
+  font-size: 1.06rem;
+}
+
+h1, h2, h3 { line-height: 1.2; font-weight: 600; }
+h1 { font-size: 1.9rem; margin: 0 0 0.2rem; }
+h2 { font-size: 1.3rem; margin: 2.6rem 0 0.6rem; }
+h3 { font-size: 1.06rem; margin: 1.8rem 0 0.4rem; letter-spacing: 0.02em; }
+
+.eyebrow {
+  font-size: 0.78rem; letter-spacing: 0.14em; text-transform: uppercase;
+  color: var(--muted); font-family: ui-monospace, "SF Mono", Menlo, monospace;
+  margin: 0 0 1.5rem;
+}
+
+a { color: var(--accent); text-decoration-thickness: 1px; text-underline-offset: 2px; }
+
+p { margin: 0.8rem 0; }
+
+code, .mono {
+  font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+  font-size: 0.86em;
+}
+
+/* --- Callouts --- */
+.callout {
+  border-left: 3px solid var(--accent);
+  background: var(--accent-soft);
+  padding: 0.8rem 1rem;
+  margin: 1.4rem 0;
+  border-radius: 0 4px 4px 0;
+}
+.callout .label {
+  font-family: ui-monospace, monospace; font-size: 0.72rem; letter-spacing: 0.1em;
+  text-transform: uppercase; color: var(--accent); display: block; margin-bottom: 0.3rem;
+}
+.callout.job { border-color: var(--index); }
+.callout.job .label { color: var(--index); }
+
+/* --- Margin notes / asides --- */
+.aside { color: var(--muted); font-size: 0.92rem; font-style: italic; }
+
+/* --- Key term --- */
+.term { font-variant: small-caps; letter-spacing: 0.03em; font-weight: 600; }
+
+/* --- Molecule diagram segments --- */
+.molecule {
+  display: flex; flex-wrap: wrap; gap: 3px; margin: 1.2rem 0; font-family: ui-monospace, monospace;
+  font-size: 0.8rem; align-items: stretch;
+}
+.seg {
+  padding: 0.5rem 0.55rem; border-radius: 4px; color: #fff; text-align: center;
+  display: flex; flex-direction: column; justify-content: center; min-width: 3rem; flex: 1;
+}
+.seg small { display: block; font-size: 0.7em; opacity: 0.85; font-weight: 400; }
+.seg-p5 { background: var(--p5); }
+.seg-p7 { background: var(--p7); }
+.seg-index { background: var(--index); }
+.seg-primer { background: var(--primer); }
+.seg-insert { background: var(--insert); flex: 2; }
+.seg-barcode { background: #6b4e9c; }   /* cell barcode */
+.seg-umi { background: #b5486b; }        /* UMI */
+.seg-cdna { background: var(--insert); flex: 2; }
+
+.legend { display: flex; flex-wrap: wrap; gap: 0.8rem; font-size: 0.82rem; margin: 0.6rem 0 1.4rem; }
+.legend span { display: inline-flex; align-items: center; gap: 0.35rem; }
+.swatch { width: 0.85rem; height: 0.85rem; border-radius: 2px; display: inline-block; }
+
+/* --- Quiz widget --- */
+.quiz { border: 1px solid var(--rule); border-radius: 6px; padding: 1.1rem 1.2rem; margin: 1.4rem 0; }
+.quiz .q { font-weight: 600; margin-bottom: 0.7rem; }
+.quiz button.opt {
+  display: block; width: 100%; text-align: left; margin: 0.4rem 0; padding: 0.6rem 0.8rem;
+  border: 1px solid var(--rule); border-radius: 5px; background: transparent; color: var(--ink);
+  font: inherit; cursor: pointer; transition: background 0.15s, border-color 0.15s;
+}
+.quiz button.opt:hover { border-color: var(--accent); }
+.quiz button.opt.correct { border-color: var(--good); background: color-mix(in srgb, var(--good) 14%, transparent); }
+.quiz button.opt.wrong { border-color: var(--bad); background: color-mix(in srgb, var(--bad) 12%, transparent); }
+.quiz .fb { margin-top: 0.6rem; font-size: 0.94rem; min-height: 1.2em; }
+.quiz .fb.good { color: var(--good); }
+.quiz .fb.bad { color: var(--bad); }
+
+/* --- SBS cycle-stepper component --- */
+.sbs { border: 1px solid var(--rule); border-radius: 6px; padding: 1rem 1.1rem; margin: 1.4rem 0; }
+.sbs-strand { display: flex; flex-wrap: wrap; gap: 3px; min-height: 2.2rem; align-items: center; margin-bottom: 0.8rem; }
+.sbs-base {
+  width: 1.9rem; height: 1.9rem; border-radius: 4px; color: #fff; font-family: ui-monospace, monospace;
+  font-weight: 700; display: inline-flex; align-items: center; justify-content: center; font-size: 0.9rem;
+}
+.sbs-A { background: #c9a227; }   /* both channels — amber/yellow */
+.sbs-C { background: #c0392b; }   /* red only */
+.sbs-T { background: #2e8b57; }   /* green only */
+.sbs-G { background: #4a4a4a; }   /* dark */
+.sbs-readout { display: flex; align-items: center; gap: 1rem; flex-wrap: wrap; font-size: 0.9rem; margin-bottom: 0.8rem; }
+.sbs-cyclelabel { font-family: ui-monospace, monospace; }
+.sbs-channels { display: inline-flex; gap: 0.4rem; }
+.sbs-chan {
+  font-family: ui-monospace, monospace; font-size: 0.7rem; letter-spacing: 0.08em; padding: 0.2rem 0.5rem;
+  border-radius: 3px; border: 1px solid var(--rule); opacity: 0.35;
+}
+.sbs-red.lit { opacity: 1; background: #c0392b; color: #fff; border-color: #c0392b; }
+.sbs-green.lit { opacity: 1; background: #2e8b57; color: #fff; border-color: #2e8b57; }
+.sbs-controls { display: flex; gap: 0.5rem; flex-wrap: wrap; }
+.sbs-btn {
+  font: inherit; font-size: 0.9rem; padding: 0.45rem 0.9rem; border: 1px solid var(--accent);
+  background: transparent; color: var(--accent); border-radius: 5px; cursor: pointer;
+}
+.sbs-btn:hover { background: var(--accent-soft); }
+
+/* --- Read-sequence steps (one cluster, four reads) --- */
+.readsteps { list-style: none; padding: 0; margin: 1.2rem 0; counter-reset: rs; }
+.readsteps > li {
+  position: relative; padding: 0.55rem 0 0.55rem 2.6rem; margin: 0; counter-increment: rs;
+  border-left: 2px solid var(--rule); margin-left: 0.9rem;
+}
+.readsteps > li::before {
+  content: counter(rs); position: absolute; left: -0.95rem; top: 0.5rem; width: 1.7rem; height: 1.7rem;
+  background: var(--accent); color: #fff; border-radius: 50%; display: flex; align-items: center;
+  justify-content: center; font-family: ui-monospace, monospace; font-size: 0.85rem; font-weight: 700;
+}
+.readsteps > li.turn::before { background: var(--index); }
+.readsteps > li.read1::before, .readsteps > li.read2::before { background: var(--insert); }
+.readsteps > li.idx::before { background: var(--p5); }
+.readsteps .rs-title { font-weight: 600; }
+.readsteps .rs-title .mono { color: var(--accent); font-weight: 400; }
+.readsteps .rs-body { font-size: 0.92rem; color: var(--muted); margin-top: 0.1rem; }
+
+/* --- Strand-state timeline (ds vs ss across the workflow) --- */
+.strandmap { margin: 1.2rem 0; font-size: 0.9rem; }
+.strandmap .row { display: grid; grid-template-columns: 11rem 1fr; gap: 0.7rem; align-items: center; padding: 0.35rem 0; }
+.strandmap .stage { font-family: ui-monospace, monospace; font-size: 0.8rem; }
+.strandmap .strands { display: flex; flex-direction: column; gap: 2px; }
+.strandmap .bar { height: 0.55rem; border-radius: 3px; }
+.strandmap .bar.top { background: var(--p5); }
+.strandmap .bar.bot { background: var(--p7); opacity: 0.7; }
+.strandmap .bar.ss { background: var(--insert); }
+.strandmap .note { color: var(--muted); font-style: italic; }
+.strandmap .divider { grid-column: 1 / -1; border-top: 1px dashed var(--rule); margin: 0.15rem 0; }
+
+/* --- Demux bench component --- */
+.demux { border: 1px solid var(--rule); border-radius: 6px; padding: 1rem 1.1rem; margin: 1.4rem 0; }
+.dx-caption { font-family: ui-monospace, monospace; font-size: 0.78rem; letter-spacing: 0.06em;
+  text-transform: uppercase; color: var(--muted); margin: 0.6rem 0 0.4rem; }
+.dx-sheet table { width: 100%; border-collapse: collapse; font-size: 0.9rem; }
+.dx-sheet th, .dx-sheet td { text-align: left; padding: 0.3rem 0.5rem; border-bottom: 1px solid var(--rule); }
+.dx-sheet th { font-family: ui-monospace, monospace; font-size: 0.75rem; color: var(--muted); }
+.dx-name { font-weight: 600; }
+.dx-read { border-top: 1px solid var(--rule); padding: 0.7rem 0 0.3rem; }
+.dx-obs { font-size: 0.92rem; margin-bottom: 0.45rem; }
+.dx-opts { display: flex; flex-wrap: wrap; gap: 0.4rem; }
+.dx-opt { font: inherit; font-size: 0.88rem; padding: 0.35rem 0.7rem; border: 1px solid var(--rule);
+  background: transparent; color: var(--ink); border-radius: 5px; cursor: pointer; }
+.dx-opt:hover { border-color: var(--accent); }
+.dx-opt.correct { border-color: var(--good); background: color-mix(in srgb, var(--good) 14%, transparent); }
+.dx-opt.wrong { border-color: var(--bad); background: color-mix(in srgb, var(--bad) 12%, transparent); }
+.dx-fb { margin-top: 0.45rem; font-size: 0.9rem; min-height: 1em; }
+
+/* --- Nav footer --- */
+.lesson-nav {
+  margin-top: 3.5rem; padding-top: 1.2rem; border-top: 1px solid var(--rule);
+  display: flex; justify-content: space-between; font-size: 0.9rem; gap: 1rem; flex-wrap: wrap;
+}
+.ask {
+  margin-top: 2.5rem; padding: 1rem 1.2rem; border: 1px dashed var(--accent); border-radius: 6px;
+  font-size: 0.95rem;
+}
+
+hr.rule { border: none; border-top: 1px solid var(--rule); margin: 2.5rem 0; }
+
+@media print {
+  body { max-width: none; font-size: 11pt; padding: 0; }
+  .quiz button.opt { break-inside: avoid; }
+  a { color: var(--ink); }
+}

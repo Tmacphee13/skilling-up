@@ -1,0 +1,147 @@
+/* course.css — shared stylesheet for the Transformer Internals course.
+   Tufte-inspired: readable measure, generous margins, restrained color,
+   prints cleanly. Linked by every lesson and reference doc. */
+
+:root {
+  --ink:        #1a1a1a;
+  --ink-soft:   #4a4a4a;
+  --paper:      #fdfdfb;
+  --rule:       #e0ddd4;
+  --accent:     #a01818;   /* deep red — used sparingly for emphasis + key terms */
+  --accent-bg:  #fbf2f2;
+  --link:       #1a5276;
+  --code-bg:    #f4f2ec;
+  --note-bg:    #f7f6f0;
+  --good:       #1e7a46;
+  --measure:    38rem;     /* comfortable reading width */
+  --font-body:  Georgia, 'Iowan Old Style', 'Palatino Linotype', serif;
+  --font-sans:  'Helvetica Neue', Arial, sans-serif;
+  --font-mono:  'SF Mono', 'DejaVu Sans Mono', Menlo, Consolas, monospace;
+}
+
+* { box-sizing: border-box; }
+
+html { font-size: 18px; }
+
+body {
+  font-family: var(--font-body);
+  color: var(--ink);
+  background: var(--paper);
+  line-height: 1.55;
+  max-width: var(--measure);
+  margin: 4rem auto;
+  padding: 0 1.4rem;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* --- Course chrome ------------------------------------------------------- */
+.eyebrow {
+  font-family: var(--font-sans);
+  font-size: 0.72rem;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--ink-soft);
+  margin: 0 0 0.4rem;
+}
+h1 { font-size: 2rem; line-height: 1.15; margin: 0 0 1.2rem; font-weight: 700; }
+h2 {
+  font-size: 1.3rem; margin: 2.6rem 0 0.8rem; font-weight: 700;
+  padding-bottom: 0.2rem; border-bottom: 1px solid var(--rule);
+}
+h3 { font-size: 1.05rem; margin: 1.8rem 0 0.5rem; font-family: var(--font-sans); }
+
+p { margin: 0 0 1rem; }
+a { color: var(--link); text-decoration: none; border-bottom: 1px solid rgba(26,82,118,0.25); }
+a:hover { border-bottom-color: var(--link); }
+
+strong { font-weight: 700; }
+em.term { font-style: normal; color: var(--accent); font-weight: 600; }
+
+/* --- Callouts ------------------------------------------------------------ */
+.note, .payoff, .recall, .primary, .warn {
+  font-family: var(--font-sans);
+  font-size: 0.92rem;
+  line-height: 1.5;
+  padding: 0.9rem 1.1rem;
+  margin: 1.4rem 0;
+  border-radius: 4px;
+  background: var(--note-bg);
+  border-left: 3px solid var(--rule);
+}
+.note   { border-left-color: #b9b3a0; }
+.payoff { border-left-color: var(--accent); background: #fbf3f2; }
+.recall { border-left-color: var(--link);   background: #eef4f8; }
+.primary{ border-left-color: var(--good);    background: #eef7f1; }
+.warn   { border-left-color: #c07a00;        background: #fbf5e8; }
+.callout-label {
+  display: block;
+  font-size: 0.68rem; letter-spacing: 0.1em; text-transform: uppercase;
+  font-weight: 700; margin-bottom: 0.35rem; color: var(--ink-soft);
+}
+
+/* --- Code ---------------------------------------------------------------- */
+code {
+  font-family: var(--font-mono);
+  font-size: 0.86em;
+  background: var(--code-bg);
+  padding: 0.1em 0.35em;
+  border-radius: 3px;
+}
+pre {
+  font-family: var(--font-mono);
+  font-size: 0.82rem;
+  line-height: 1.45;
+  background: var(--code-bg);
+  padding: 1rem 1.1rem;
+  border-radius: 5px;
+  overflow-x: auto;
+  margin: 1.2rem 0;
+}
+pre code { background: none; padding: 0; }
+
+/* --- Marginalia / citations ---------------------------------------------- */
+.cite { font-size: 0.85em; }
+sup.ref { font-family: var(--font-sans); font-size: 0.7rem; color: var(--accent); }
+
+/* --- Figures ------------------------------------------------------------- */
+figure { margin: 1.6rem 0; text-align: center; }
+figure svg { max-width: 100%; height: auto; }
+figcaption {
+  font-family: var(--font-sans); font-size: 0.8rem; color: var(--ink-soft);
+  margin-top: 0.5rem; text-align: center;
+}
+
+/* --- Footer / nav -------------------------------------------------------- */
+.lesson-nav {
+  display: flex; justify-content: space-between; gap: 1rem;
+  margin-top: 3rem; padding-top: 1.2rem; border-top: 1px solid var(--rule);
+  font-family: var(--font-sans); font-size: 0.85rem;
+}
+.ask {
+  font-family: var(--font-sans); font-size: 0.9rem;
+  text-align: center; color: var(--ink-soft);
+  margin-top: 2.5rem; padding: 1rem; border: 1px dashed var(--rule); border-radius: 5px;
+}
+
+/* --- Print --------------------------------------------------------------- */
+@media print {
+  body { margin: 0; max-width: none; font-size: 11pt; }
+  .ask, .lesson-nav { display: none; }
+  a { color: var(--ink); border: none; }
+  h2 { page-break-after: avoid; }
+  .note, .payoff, .recall, .primary, .warn { page-break-inside: avoid; }
+}
+
+/* --- Interactive widgets (quizzes) --------------------------------------- */
+.quiz { font-family: var(--font-sans); margin: 1.6rem 0; }
+.quiz .q { font-weight: 600; margin-bottom: 0.7rem; }
+.quiz button.opt {
+  display: block; width: 100%; text-align: left;
+  font-family: var(--font-sans); font-size: 0.9rem;
+  background: #fff; border: 1px solid var(--rule); border-radius: 4px;
+  padding: 0.6rem 0.8rem; margin: 0.4rem 0; cursor: pointer; transition: all 0.12s;
+}
+.quiz button.opt:hover { border-color: var(--ink-soft); }
+.quiz button.opt.correct { background: var(--good); color: #fff; border-color: var(--good); }
+.quiz button.opt.wrong   { background: #c0392b; color: #fff; border-color: #c0392b; }
+.quiz .feedback { font-size: 0.88rem; margin-top: 0.6rem; min-height: 1.2rem; }

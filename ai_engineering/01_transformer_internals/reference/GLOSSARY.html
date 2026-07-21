@@ -1,0 +1,70 @@
+<meta charset="utf-8">
+<title>Glossary — Transformer Internals</title>
+<link rel="stylesheet" href="../assets/course.css">
+<style>
+  dl.glossary { margin: 1.5rem 0; }
+  dl.glossary dt { font-family: var(--font-sans); font-weight: 700; color: var(--accent); margin-top: 1.2rem; }
+  dl.glossary dd { margin: 0.3rem 0 0; }
+  .from { font-family: var(--font-sans); font-size: 0.72rem; color: var(--ink-soft); text-transform: uppercase; letter-spacing: 0.08em; }
+</style>
+
+<p class="eyebrow">Transformer Internals · Reference</p>
+<h1>Glossary</h1>
+<p>The controlled vocabulary for this course. Every lesson uses these terms as defined here.
+Grows as we go — terms are tagged with the lesson that introduced them.</p>
+
+<dl class="glossary">
+
+  <dt>Token</dt>
+  <dd>The atomic unit a language model reads and writes — not a word and not a character,
+  but a chunk of bytes (often a common word-piece) chosen by the tokenizer. A model's
+  entire world is a sequence of token IDs. <span class="from">Lesson 1</span></dd>
+
+  <dt>Vocabulary</dt>
+  <dd>The fixed set of all tokens a model knows (e.g. ~100k for GPT-4o). Each entry has an
+  integer ID. Text outside the vocabulary is spelled out from smaller sub-word pieces.
+  <span class="from">Lesson 1</span></dd>
+
+  <dt>BPE (Byte-Pair Encoding)</dt>
+  <dd>The algorithm that builds the vocabulary: start from raw bytes, then repeatedly merge
+  the most frequent adjacent pair into a new token. Frequent words become single tokens;
+  rare words stay in pieces. <span class="from">Lesson 1</span></dd>
+
+  <dt>Tokenization</dt>
+  <dd>The reversible process of converting text ↔ a sequence of token IDs, done before the
+  model sees anything and after it produces anything. <span class="from">Lesson 1</span></dd>
+
+  <dt>Context window</dt>
+  <dd>The maximum number of <em class="term">tokens</em> (not words or characters) a model can
+  attend to at once. Cost and truncation are both counted in tokens. <span class="from">Lesson 1</span></dd>
+
+  <dt>Embedding</dt>
+  <dd>A vector of numbers standing in for a piece of language, so a network can do math on it.
+  The word is overloaded — see the three types below. <span class="from">Lesson 2</span></dd>
+
+  <dt>Token embedding</dt>
+  <dd>A <em>static</em> vector looked up from the model's embedding table (one row per vocabulary
+  entry, shape <code>[vocab × d_model]</code>), learned by backprop. Context-free: "bank" gets one
+  row regardless of meaning. <span class="from">Lesson 2</span></dd>
+
+  <dt>Contextual embedding</dt>
+  <dd>A token's vector <em>after</em> passing through the transformer layers, reshaped by its
+  neighbors via attention. "bank" now differs by sentence. The model's internal output.
+  <span class="from">Lesson 2</span></dd>
+
+  <dt>Sentence embedding</dt>
+  <dd>One vector for a whole sentence/document, usually pooled (e.g. averaged) from contextual
+  embeddings. What an embeddings API returns; stored for semantic search / RAG and compared by
+  cosine similarity. <span class="from">Lesson 2</span></dd>
+
+  <dt>d_model</dt>
+  <dd>The dimensionality of the model's vectors — the width every embedding and hidden state
+  shares (e.g. 2048). <span class="from">Lesson 2</span></dd>
+
+  <dt>Cosine similarity</dt>
+  <dd>Similarity of two vectors measured by the angle between them (1 = same direction, 0 =
+  unrelated). The standard ranking metric for sentence-embedding search. <span class="from">Lesson 2</span></dd>
+
+</dl>
+
+<div class="ask">💬 Something here not click? Ask your teacher — that's what I'm here for.</div>

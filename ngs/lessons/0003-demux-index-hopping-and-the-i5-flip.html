@@ -1,0 +1,163 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Lesson 3 — Demux, Index Hopping &amp; the i5 Flip</title>
+<link rel="stylesheet" href="../assets/style.css">
+</head>
+<body>
+<p class="eyebrow">NGS Foundations · Lesson 3</p>
+<h1>Demux, index hopping &amp; the i5 flip</h1>
+<p class="aside">The one lesson that lands squarely on your daily job — now with mechanism underneath it.</p>
+
+<p>You run this every day. The goal here isn't to teach you the commands — it's to give the three
+things you handle downstream a mechanistic <em>why</em>, so a bad run becomes a diagnosis instead
+of a mystery: <strong>the Undetermined pile, index hopping, and the i5 reverse-complement flip.</strong>
+Everything below builds on the four-reads sequence from
+<a href="0002-how-the-molecule-gets-read.html">Lesson 2</a>.</p>
+
+<h2>What demux actually decides</h2>
+<p>After the run, every cluster has an <span class="mono">i7</span> and <span class="mono">i5</span>
+read (the I1/I2 bursts). Demux does one thing per cluster: <strong>compare its observed index pair
+against the sample sheet, and route the read to whichever sample matches</strong> — or to
+<span class="term">Undetermined</span> if none does. Two rules do all the work:</p>
+
+<ul>
+  <li><strong>Both indexes must match.</strong> A dual-indexed read is assigned only if its i7
+  <em>and</em> its i5 both match the same sample sheet row.</li>
+  <li><strong>Matching allows a small mismatch budget.</strong> The default tolerance is
+  <strong>1 mismatch per index</strong>. Sequencing isn't perfect, so an index that's off by one
+  base is still assigned — <em>as long as it's still closer to one sample than any other.</em></li>
+</ul>
+
+<div class="callout">
+  <span class="label">Why indexes are designed far apart</span>
+  That 1-mismatch budget only works if no two indexes in the pool are within 2 bases of each other.
+  If two indexes differed by a single base, a one-base error could turn one into the other and
+  misassign the read. This minimum edit distance (Hamming distance) is why index kits use
+  carefully chosen sequences — and why you can't just pool two samples whose indexes look nearly
+  identical. Low index diversity is also why demux (and the base-caller) struggle on low-plex or
+  unbalanced pools.
+</div>
+
+<h2>Try the bench</h2>
+<p>Here's a real 2-sample pool. Assign each observed read to a sample or to Undetermined, applying
+the two rules above (1 mismatch allowed, both indexes must match). Click and you'll get graded with
+the reasoning:</p>
+
+<div class="demux" data-mismatch="1"
+  data-samples='[{"name":"S1","i7":"AAAACCCC","i5":"GGGGTTTT"},{"name":"S2","i7":"TTTTGGGG","i5":"CCCCAAAA"}]'
+  data-reads='[{"i7":"AAAACCCC","i5":"GGGGTTTT"},{"i7":"AAAACCCG","i5":"GGGGTTTT"},{"i7":"AAAACCCC","i5":"CCCCAAAA"},{"i7":"AATTCCCC","i5":"GGGGTTTT"}]'>
+</div>
+
+<p>Read 3 is the interesting one: its i7 belongs to S1 but its i5 belongs to S2. That pair isn't a
+real sample — it's an <span class="term">index hop</span>, and the next section is about why it
+happens and why this pool caught it safely.</p>
+
+<h2>Index hopping — the mechanism</h2>
+<p>An index hop is a read that gets <em>mis-labeled</em> with the wrong sample's index. The cause is
+physical: a pool always contains some <strong>free-floating index primers / adapter fragments</strong>
+left over from library prep. On a patterned flow cell, the <span class="term">ExAmp</span> reaction
+(<a href="0002-how-the-molecule-gets-read.html">Lesson 2</a>) is fast and happens in bulk before
+clustering finishes — so one of those free indexes can anneal to another sample's molecule and get
+extended by polymerase, stamping it with the wrong barcode. The read is real DNA; only its index tag
+is a lie.</p>
+
+<p>This is why hopping is a <strong>patterned-flow-cell problem</strong> (NovaSeq, NextSeq, iSeq) far
+more than a non-patterned one (MiSeq). It's also why it's worse on low-input or over-amplified
+libraries — more free adapter floating around.</p>
+
+<h2>UDI vs CDI — why the pool design decides your fate</h2>
+<p>Here's the part that actually protects your data, and it's a design choice made before the run:</p>
+
+<table style="width:100%; border-collapse:collapse; font-size:0.93rem; margin:1.2rem 0;">
+  <tr style="border-bottom:1px solid var(--rule); text-align:left;">
+    <th style="padding:0.4rem 0.5rem;"></th><th style="padding:0.4rem 0.5rem;">Combinatorial (CDI)</th><th style="padding:0.4rem 0.5rem;">Unique dual (UDI)</th></tr>
+  <tr style="border-bottom:1px solid var(--rule);"><td style="padding:0.4rem 0.5rem;">Index reuse</td><td style="padding:0.4rem 0.5rem;">i7s and i5s reused in a grid of combinations</td><td style="padding:0.4rem 0.5rem;">each i7 paired with one dedicated i5, never reused</td></tr>
+  <tr style="border-bottom:1px solid var(--rule);"><td style="padding:0.4rem 0.5rem;">A hopped read…</td><td style="padding:0.4rem 0.5rem;">may land on a <em>valid</em> i7+i5 combo</td><td style="padding:0.4rem 0.5rem;">produces an i7+i5 pair not in the sheet</td></tr>
+  <tr><td style="padding:0.4rem 0.5rem;"><strong>Result</strong></td><td style="padding:0.4rem 0.5rem; color:var(--p7);"><strong>silently misassigned to a real sample</strong></td><td style="padding:0.4rem 0.5rem; color:var(--primer);"><strong>caught → dropped to Undetermined</strong></td></tr>
+</table>
+
+<p>That's the whole point of UDI: it can't <em>stop</em> the hop, but it converts a silent, invisible
+contamination into a harmless read in the Undetermined pile — exactly what happened to Read 3 above.
+UDI drops cross-contamination from ~1% to under 0.01% on ExAmp systems. <span class="aside">This is
+why single-cell, low-input, and any sensitive assay should insist on UDI.</span></p>
+
+<h2>The i5 flip, in full</h2>
+<p>Now the gotcha you already meet in sample sheets, with its real cause from
+<a href="0002-how-the-molecule-gets-read.html">Lesson 2</a>. The i5 index is read off the original
+strand on some instruments and off the <em>turnaround-rebuilt</em> strand on others. Those strands are
+reverse complements, so the same physical i5 is reported two ways:</p>
+
+<table style="width:100%; border-collapse:collapse; font-size:0.9rem; margin:1.2rem 0;">
+  <tr style="border-bottom:1px solid var(--rule); text-align:left;">
+    <th style="padding:0.4rem 0.5rem;">Forward-strand workflow (i5 as-is)</th><th style="padding:0.4rem 0.5rem;">Reverse-complement workflow (i5 flipped)</th></tr>
+  <tr><td style="padding:0.4rem 0.5rem; vertical-align:top;">MiSeq, HiSeq 2000/2500, MiniSeq Rapid</td><td style="padding:0.4rem 0.5rem; vertical-align:top;">iSeq 100, MiniSeq (standard), NextSeq 500/550 &amp; 1000/2000, HiSeq 3000/4000/X, NovaSeq 6000 (v1.5), NovaSeq X</td></tr>
+</table>
+
+<div class="callout job">
+  <span class="label">Diagnosing it at your desk</span>
+  The signature: <strong>near-total Undetermined, but the i7s look fine and the top unknown
+  barcodes are the reverse complements of your i5s.</strong> That's a flipped i5 in the sample
+  sheet, not a failed run. Modern planners (BaseSpace, Local Run Manager, DRAGEN) auto-reverse-
+  complement i5 for the instrument if you enter it forward — so hand-built or ported sample sheets
+  are where this bites. First move when Undetermined is huge: open the <em>Top Unknown Barcodes</em>
+  report and check whether the mystery i5s are revcomps of your expected ones.
+</div>
+
+<h2>Check yourself</h2>
+<p class="aside">From memory.</p>
+
+<div class="quiz" data-answer="2">
+  <div class="q">A pool demuxes to 85% Undetermined. The top unknown barcodes have correct i7s but i5s that are the reverse complement of your sample sheet. Most likely cause?</div>
+  <button class="opt" data-why="A failed run gives low overall yield/quality, not a clean revcomp pattern.">The sequencing run failed</button>
+  <button class="opt" data-why="Hopping produces scattered wrong combos, not a systematic revcomp of every i5.">Massive index hopping</button>
+  <button class="opt" data-why="Right — systematic i5 revcomp in the unknowns = wrong i5 orientation for this instrument.">i5 entered in the wrong orientation</button>
+  <button class="opt" data-why="Adapter contamination shows up in reads, not as a clean i5 revcomp in indexes.">Adapter contamination</button>
+  <div class="fb"></div>
+</div>
+
+<div class="quiz" data-answer="1">
+  <div class="q">Why does unique dual indexing (UDI) protect against index hopping when combinatorial (CDI) does not?</div>
+  <button class="opt" data-why="UDI doesn't reduce the physical hop rate; the chemistry is the same.">UDI prevents hops from happening</button>
+  <button class="opt" data-why="Right — a hopped UDI pair isn't a real combo, so it fails to match and is dropped safely.">A hopped read forms an invalid pair, so it's dropped</button>
+  <button class="opt" data-why="Index length isn't the mechanism; it's whether the hopped combo is a valid sample.">UDI indexes are longer and error-proof</button>
+  <button class="opt" data-why="Both use two indexes; the difference is reuse, not count.">CDI only uses one index</button>
+  <div class="fb"></div>
+</div>
+
+<div class="quiz" data-answer="0">
+  <div class="q">Default demux allows 1 mismatch per index. Why can't you safely raise it to 3 for a big pool?</div>
+  <button class="opt" data-why="Right — with a wider budget, one index can fall within range of two samples and misassign.">Indexes could become ambiguous between samples</button>
+  <button class="opt" data-why="Runtime isn't the real constraint; correctness is.">It makes demux too slow to run</button>
+  <button class="opt" data-why="Read length is independent of index mismatch tolerance.">It shortens the usable read length</button>
+  <button class="opt" data-why="Undetermined would shrink, not grow — that's the hazard, not a safeguard.">It sends every read to Undetermined</button>
+  <div class="fb"></div>
+</div>
+
+<hr class="rule">
+
+<h2>Read this next</h2>
+<p><strong>Primary sources:</strong> for the i5 orientation split, the
+<a href="https://knowledge.illumina.com/software/general/software-general-reference_material-list/000001800">Illumina guidelines for reverse-complementing i5</a>
+(and the instrument table in the <a href="https://help.connected.illumina.com/run-set-up/overview/index-orientation-guide">Index Orientation Guide</a>).
+For hopping and UDI, <a href="https://www.revvity.com/blog/index-hopping-illumina-ngs-what-it-why-it-matters-and-how-unique-dual-indexing-solves-problem">this index-hopping explainer</a>.
+Demux mechanics live in the <a href="https://support.illumina.com/content/dam/illumina-support/documents/documentation/software_documentation/bcl2fastq/bcl2fastq2-v2-17-software-guide-15051736-g.pdf">bcl2fastq2 Software Guide</a>.</p>
+
+<div class="ask">
+  <strong>Ask me anything.</strong> Want to walk through a real Undetermined / Top-Unknown-Barcodes
+  report from one of your runs? Curious how single-cell adds a <em>cell</em> barcode + UMI on top of
+  the sample index (that's Lesson 5)? Or how a low-diversity amplicon pool breaks demux and needs a
+  PhiX spike? Bring me a real case and we'll diagnose it together.
+</div>
+
+<div class="lesson-nav">
+  <span><a href="0002-how-the-molecule-gets-read.html">← Lesson 2</a> · <a href="../reference/glossary.html">Glossary</a></span>
+  <span><a href="0004-from-sample-to-library.html">Next: from sample to library →</a></span>
+</div>
+
+<script src="../assets/quiz.js"></script>
+<script src="../assets/demux-sim.js"></script>
+</body>
+</html>

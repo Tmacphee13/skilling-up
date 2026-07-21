@@ -1,0 +1,152 @@
+<meta charset="utf-8">
+<title>Lesson 1 · Tokenization</title>
+<link rel="stylesheet" href="../assets/course.css">
+<script src="../assets/quiz.js" defer></script>
+
+<p class="eyebrow">Transformer Internals · Movement I · Lesson 1</p>
+<h1>Tokenization: the model never sees your text</h1>
+
+<p>Here is the first surprising fact, and it explains a startling amount of LLM
+behavior: <strong>a language model never sees characters, and it never sees words.</strong>
+Before your prompt reaches the network, it is chopped into <em class="term">tokens</em>
+and each token is swapped for an integer ID. The model's entire universe is a sequence
+of these IDs — say <code>[9906, 11, 1917]</code> — and its only job is to predict the next one.</p>
+
+<div class="payoff">
+  <span class="callout-label">Why this is Lesson 1</span>
+  You already know a network takes in numbers and does matrix math. The missing piece
+  between "my English sentence" and "numbers a neural net can chew on" is
+  <em class="term">tokenization</em>. Everything else in this course sits on top of it.
+</div>
+
+<h2>What a token actually is</h2>
+
+<p>A token is usually a <strong>sub-word</strong>: bigger than a letter, often smaller than
+a word. Common words (<code>" the"</code>, <code>" and"</code>) get their own single token.
+Rare or novel strings get spelled out from several pieces. The word
+<code>"tokenization"</code> might split as <code>token</code> + <code>ization</code>;
+a typo or a random string like <code>"asdf1234"</code> shatters into many tiny fragments.</p>
+
+<p>The complete set of tokens a model knows is its <em class="term">vocabulary</em> —
+roughly 100,000 entries for GPT-4o-class models. Notice the leading spaces above:
+<code>" the"</code> (with space) and <code>"the"</code> (without) are <em>different tokens</em>.
+That detail alone causes a lot of "why did the model do that?" moments.</p>
+
+<h2>Where the vocabulary comes from: BPE</h2>
+
+<p>Nobody hand-writes 100k tokens. They're <em>learned</em> from a big pile of text by an
+algorithm called <em class="term">Byte-Pair Encoding (BPE)</em>, and the idea is charmingly simple:<sup class="ref">1</sup></p>
+
+<ol>
+  <li>Start with the rawest possible units — individual bytes.</li>
+  <li>Scan the corpus and find the <strong>most frequent adjacent pair</strong>.</li>
+  <li>Merge that pair into a single new token. Add it to the vocabulary.</li>
+  <li>Repeat thousands of times.</li>
+</ol>
+
+<p>Frequent sequences (<code>t</code>+<code>h</code> → <code>th</code>, then
+<code>th</code>+<code>e</code> → <code>the</code>) get promoted into single tokens because they
+keep winning the "most frequent pair" contest. Rare sequences never do, so they stay
+fragmented. That's the whole trick — and it's why the tokenizer is <em>trained</em>,
+just like the model, but separately and first.</p>
+
+<div class="note">
+  <span class="callout-label">Anchor to what you know</span>
+  BPE is <em>not</em> gradient descent — no loss, no backprop. It's a greedy frequency-counting
+  procedure run once, before training. The <em>embedding</em> table that turns each token ID
+  into a vector <strong>is</strong> learned by backprop — but that's Lesson 2.
+</div>
+
+<h2>Why you actually care (the practical payoff)</h2>
+
+<p>Three real-world behaviors fall straight out of "the model sees tokens, not letters":</p>
+
+<p><strong>1. Cost and context are counted in tokens.</strong> APIs bill per token and the
+<em class="term">context window</em> is a token budget, not a word or character count.<sup class="ref">2</sup>
+English averages ~1.3 tokens/word; code, JSON, and non-English text are far less efficient —
+the same idea in some languages costs several times more tokens.</p>
+
+<p><strong>2. Models are bad at spelling and character counting.</strong> The infamous
+"how many <em>r</em>'s in <code>strawberry</code>?" failure isn't stupidity — the model may
+see <code>straw</code>+<code>berry</code> as two opaque tokens. The individual letters are
+<em>welded shut</em> inside a token it never gets to look inside.<sup class="ref">1</sup></p>
+
+<p><strong>3. Arithmetic and rare strings get weird.</strong> Numbers tokenize inconsistently
+(<code>127</code> might be one token, <code>128</code> two), so digit-level math is fighting
+the representation. Rare words fragment, spending tokens and diluting meaning.</p>
+
+<div class="recall">
+  <span class="callout-label">Try it — 2 minutes, do this now</span>
+  Open <a href="https://tiktokenizer.vercel.app/">Tiktokenizer</a> and paste in:
+  your name, the word <code>strawberry</code>, a line of code, and a sentence in another
+  language. Watch the color blocks. <em>Which</em> things become one token, and which shatter?
+  This single habit will make the quiz below effortless.
+</div>
+
+<h2>Check yourself</h2>
+<p>Retrieval beats re-reading. Answer from memory before you peek — getting it slightly
+wrong and correcting is <em>how the memory forms</em>.</p>
+
+<div id="quiz"></div>
+
+<div class="primary">
+  <span class="callout-label">Primary source — watch this next</span>
+  <a href="https://www.youtube.com/watch?v=zduSFxRajkE">Andrej Karpathy — "Let's build the GPT Tokenizer"</a>.
+  He builds BPE from scratch and demonstrates every quirk above. Long (2h13m) but the
+  single best thing on this topic; the first 40 minutes cover everything in this lesson.
+  Code companion: <a href="https://github.com/karpathy/minbpe">minbpe</a>.
+</div>
+
+<h2>The one-sentence win</h2>
+<p>You can now explain, from first principles, why an LLM miscounts the letters in a word,
+why your bill is in tokens, and why non-English prompts cost more — all because
+<strong>the model reads BPE tokens, not text</strong>. That's the whole lesson.</p>
+
+<div class="ask">
+  💬 This is a conversation, not a handout. Ask me anything — "show me BPE merging on a real
+  word", "why leading spaces?", "how does this differ for images?" — I'm your teacher.
+</div>
+
+<nav class="lesson-nav">
+  <span><a href="../reference/GLOSSARY.html">📖 Glossary</a></span>
+  <span>Next → <em>Lesson 2: Embeddings</em> (ask me to build it)</span>
+</nav>
+
+<hr style="border:none;border-top:1px solid var(--rule);margin:2.5rem 0 1rem">
+<p class="cite"><sup class="ref">1</sup> Karpathy, <a href="https://www.youtube.com/watch?v=zduSFxRajkE">"Let's build the GPT Tokenizer"</a> &amp; <a href="https://github.com/karpathy/minbpe">minbpe</a>.
+&nbsp; <sup class="ref">2</sup> Visualize live with <a href="https://tiktokenizer.vercel.app/">Tiktokenizer</a> / <a href="https://github.com/openai/tiktoken">tiktoken</a>.</p>
+
+<script>
+document.addEventListener("DOMContentLoaded", () => Quiz.mcq("quiz", [
+  {
+    q: "Why do LLMs often miscount the letters in a word?",
+    options: [
+      "Tokens bundle several letters into one unit",
+      "Models lack enough memory to store letters",
+      "Letters are stripped out before the model reads"
+    ],
+    correct: 0,
+    why: "Right — the letters are welded shut inside a token the model can't look inside."
+  },
+  {
+    q: "What does BPE repeatedly merge to build the vocabulary?",
+    options: [
+      "The longest whole words found in text",
+      "The most frequent adjacent pair of units",
+      "The rarest characters appearing across the data"
+    ],
+    correct: 1,
+    why: "Right — greedily merge the most frequent adjacent pair, again and again."
+  },
+  {
+    q: "A context window is measured in which unit?",
+    options: [
+      "Words, as split by spaces and punctuation",
+      "Characters, counting every letter and every space",
+      "Tokens, the chunks the tokenizer produced first"
+    ],
+    correct: 2,
+    why: "Right — tokens. Cost and truncation are both counted the same way."
+  }
+]));
+</script>

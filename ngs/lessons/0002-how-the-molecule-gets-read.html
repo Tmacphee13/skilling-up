@@ -1,0 +1,260 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Lesson 2 — How the Molecule Gets Read</title>
+<link rel="stylesheet" href="../assets/style.css">
+</head>
+<body>
+<p class="eyebrow">NGS Foundations · Lesson 2</p>
+<h1>How the molecule gets read</h1>
+<p class="aside">Flow cell → clusters → cycles → chemistry. What "2×150" and a quality plot really mean.</p>
+
+<p>In <a href="0001-anatomy-of-a-library-molecule.html">Lesson 1</a> you built the molecule and
+saw that <span class="term">P5/P7</span> exist to grab the flow cell. This lesson picks up right
+there: the molecule is attached — now <em>how does the machine turn it into bases?</em> Three
+words carry the whole story: <strong>flow cell, cluster, cycle</strong>.</p>
+
+<p>Win for today: <strong>you'll be able to say exactly what a "cycle" is, what an instrument's
+"chemistry" means, and why the per-cycle quality plot in your QC reports slopes downward.</strong></p>
+
+<h2>The flow cell — the stage</h2>
+<p>A <span class="term">flow cell</span> is a glass slide with fluidic channels
+(<span class="term">lanes</span>) whose surface is coated with a lawn of two grafted oligos —
+the exact complements of P5 and P7. That's the docking station from Lesson 1. Two families of
+flow cell exist, and the difference will come back to bite you in demux:</p>
+
+<ul>
+  <li><strong>Non-patterned</strong> (MiSeq, HiSeq 2500): molecules land wherever they drift;
+  clusters form at random positions and the software maps them.</li>
+  <li><strong>Patterned</strong> (NovaSeq, NextSeq, iSeq): the surface is etched with billions
+  of <span class="term">nanowells</span> at fixed positions. Higher density, lower cost —
+  <span class="aside">but the fixed wells and the reagent chemistry make these prone to index
+  hopping, which is Lesson 3.</span></li>
+</ul>
+
+<h2>Clustering — why one molecule isn't enough</h2>
+<p>A single molecule is far too dim to photograph. So before any reading happens, each molecule
+is copied in place into a <span class="term">cluster</span>: a tight patch of ~1,000+ identical
+clones, all descended from that one template. One cluster is bright enough to image, and it
+becomes exactly <em>one read</em> (or one read pair).</p>
+
+<p>On non-patterned cells this copying is <span class="term">bridge amplification</span> — the
+strand arches over and primes off a neighboring lawn oligo, repeatedly. On patterned cells it's
+<span class="term">ExAmp</span>, a fast isothermal reaction where the first molecule to seed a
+nanowell fills it and physically excludes any second molecule (the "excluded-volume" effect),
+keeping each well <em>monoclonal</em> — one sample per cluster. Hold onto that idea; when it
+fails, you get index hopping.</p>
+
+<div class="callout">
+  <span class="label">The mental model</span>
+  <strong>1 molecule → 1 cluster → 1 read.</strong> Everything about yield ("how many reads did
+  I get?") is really "how many monoclonal clusters formed?" Over-loading the flow cell makes
+  clusters merge and unreadable; under-loading wastes capacity. That balance is the wetlab's
+  <span class="term">loading concentration</span> decision.
+</div>
+
+<h2>A cycle = one base</h2>
+<p>Now the reading. Illumina's <span class="term">sequencing by synthesis (SBS)</span> rebuilds
+the complementary strand of the insert one base at a time. Each <strong>cycle</strong> is a
+tightly repeated four-step loop across <em>every cluster at once</em>:</p>
+
+<ol>
+  <li>Flow in all four nucleotides, each carrying a fluorescent dye <em>and</em> a reversible
+  terminator — a cap that blocks the strand from extending further this cycle.</li>
+  <li>Each cluster incorporates exactly <strong>one</strong> matching base. The terminator
+  guarantees no runaway — one base, then it stops.</li>
+  <li><strong>Image</strong> the whole flow cell. Each cluster's color = the base it just added.</li>
+  <li>Chemically cleave off the dye and the terminator, unblocking the strand. Repeat.</li>
+</ol>
+
+<p>So <strong>one cycle adds one base to the read.</strong> "2×150" means Read 1 is 150 cycles
+and Read 2 is 150 cycles. <span class="term">Read length is literally the number of SBS
+cycles.</span> But that raises a fair question — if Read 1, the index reads, and Read 2 all
+happen on the <em>same</em> cluster, how does the machine switch between them without doing four
+separate runs? That's the next section.</p>
+
+<h2>"Chemistry" = how many images per cycle</h2>
+<p>When someone says a run used a certain <em>chemistry</em>, a big part of what they mean is how
+the instrument distinguishes the four bases per cycle — the number of images (channels) it takes:</p>
+
+<table style="width:100%; border-collapse:collapse; font-size:0.94rem; margin:1.2rem 0;">
+  <tr style="border-bottom:1px solid var(--rule); text-align:left;">
+    <th style="padding:0.4rem 0.5rem;">Chemistry</th><th style="padding:0.4rem 0.5rem;">How a base is called</th><th style="padding:0.4rem 0.5rem;">Instruments</th></tr>
+  <tr style="border-bottom:1px solid var(--rule);"><td style="padding:0.4rem 0.5rem;">4-channel</td><td style="padding:0.4rem 0.5rem;">4 dyes, 4 images — one color per base</td><td style="padding:0.4rem 0.5rem;">HiSeq, MiSeq</td></tr>
+  <tr style="border-bottom:1px solid var(--rule);"><td style="padding:0.4rem 0.5rem;">2-channel</td><td style="padding:0.4rem 0.5rem;">2 images (red/green): A=both, C=red, T=green, <strong>G=neither</strong></td><td style="padding:0.4rem 0.5rem;">NextSeq, NovaSeq</td></tr>
+  <tr><td style="padding:0.4rem 0.5rem;">1-channel</td><td style="padding:0.4rem 0.5rem;">1 dye, 2 images with a chemistry step between</td><td style="padding:0.4rem 0.5rem;">iSeq</td></tr>
+</table>
+
+<p>Notice the 2-channel trick: <strong>G is the absence of signal</strong>. A dead or empty
+cluster looks exactly like a G. Step through it yourself — watch the two channels light up and a
+base get called each cycle:</p>
+
+<div class="sbs" data-template="ACGTGGAC"></div>
+
+<div class="callout job">
+  <span class="label">Why this matters at your desk</span>
+  Two things you actually see land here. <strong>(1)</strong> Because clusters gradually fall out
+  of sync — some strands lag or run ahead, called <span class="term">phasing / pre-phasing</span> —
+  the signal gets noisier every cycle. That is <em>why the per-cycle quality plot in FastQC/MultiQC
+  slopes down toward the end of the read</em>, and why R2 often looks a bit worse than R1.
+  <strong>(2)</strong> On 2-channel instruments a run of no-signal can be miscalled as
+  <code>G</code>; a poly-G tail at the 3′ end of reads is the classic 2-channel artifact from
+  dead clusters — now you know it's the "G = dark" rule failing, not real sequence.
+</div>
+
+<h2>One cluster, four reads — and how Read 2 happens</h2>
+<p>Here's the mechanism your questions were circling. A dual-index paired-end run does
+<strong>not</strong> do four separate runs. It reads the <em>same cluster</em> four times, back
+to back, in a fixed order. The trick to grasp: <strong>you never physically "aim" cycles at a
+segment. Each read is defined by which primer you anneal.</strong> A primer only sticks to its
+one matching site, so annealing a different primer means starting SBS from a different place on
+the molecule. The loop is always the same: <em>anneal a primer → run N cycles → strip off the
+new strand → repeat.</em></p>
+
+<ol class="readsteps">
+  <li class="read1">
+    <span class="rs-title">Read 1 <span class="mono">(→ R1, e.g. 150 cyc)</span></span>
+    <div class="rs-body">The Read 1 primer anneals at SP1 and SBS reads the insert. Then the strand
+    you just synthesized is stripped away, leaving the template bare again.</div>
+  </li>
+  <li class="idx">
+    <span class="rs-title">Index 1 Read <span class="mono">(→ I1 = i7, ~8&ndash;10 cyc)</span></span>
+    <div class="rs-body">A <em>different</em> primer anneals right next to the i7 barcode. A short
+    burst of cycles reads i7. This is what "separate index cycles" means — its own primer, its own
+    small cycle count, physically after Read 1. Strip.</div>
+  </li>
+  <li class="idx">
+    <span class="rs-title">Index 2 Read <span class="mono">(→ I2 = i5, ~8&ndash;10 cyc)</span></span>
+    <div class="rs-body">Yet another primer reads i5. There's nothing "pointed" at i5 vs i7 — it's
+    just a different primer landing at a different site. Strip.</div>
+  </li>
+  <li class="turn">
+    <span class="rs-title">Paired-end turnaround <span class="mono">(no read — rebuild)</span></span>
+    <div class="rs-body">This is the answer to "how do we get R2 if linearization left everything
+    pointing one way?" The template folds over, bridges to the <em>other</em> grafted lawn oligo,
+    and a polymerase copies it into a fresh complementary strand. Then the <strong>original</strong>
+    template (the one used for Read 1) is cleaved off and washed away. The cluster is now
+    single-stranded again but pointing the <em>opposite</em> direction — exposing the Read 2 primer
+    site that was buried before.</div>
+  </li>
+  <li class="read2">
+    <span class="rs-title">Read 2 <span class="mono">(→ R2, e.g. 150 cyc)</span></span>
+    <div class="rs-body">The Read 2 primer anneals at SP2 on this rebuilt strand and SBS reads the
+    insert from the opposite end. Same insert, other direction — that's paired-end.</div>
+  </li>
+</ol>
+
+<p>So R2 is not read off the original molecule and it is not a second run — it's a strand the
+instrument <em>synthesizes mid-run</em>, specifically so a fresh primer site becomes available.
+One cluster, one continuous run, four reads.</p>
+
+<div class="callout job">
+  <span class="label">This is the root of the i5 flip</span>
+  Notice the i5 read can happen either <em>before</em> the turnaround (off the original strand) or
+  <em>after</em> it (off the rebuilt strand). Those two strands are reverse complements, so the two
+  instrument families report i5 in opposite orientations — the
+  <a href="0001-anatomy-of-a-library-molecule.html">Lesson 1</a> sample-sheet gotcha. It's not a
+  software bug; it's <em>which strand existed when the i5 primer fired.</em>
+</div>
+
+<h3>Strand state across the whole workflow</h3>
+<p>Tying this to your earlier question — the double-stranded library isn't ds or ss by
+<em>segment</em>; its state changes by <em>stage</em>:</p>
+
+<div class="strandmap">
+  <div class="row"><span class="stage">In the tube</span><span class="strands"><span class="bar top"></span><span class="bar bot"></span></span></div>
+  <div class="row"><span class="stage"></span><span class="note">double-stranded, whole molecule (insert + all adapter parts)</span></div>
+  <div class="divider"></div>
+  <div class="row"><span class="stage">↓ NaOH denature</span><span class="strands"><span class="bar ss"></span></span></div>
+  <div class="row"><span class="stage"></span><span class="note">single strand — only now can it hybridize to the flow-cell lawn</span></div>
+  <div class="divider"></div>
+  <div class="row"><span class="stage">Bind → clustering</span><span class="strands"><span class="bar top"></span><span class="bar bot"></span></span></div>
+  <div class="row"><span class="stage"></span><span class="note">oscillates ds ↔ ss every bridge/ExAmp round</span></div>
+  <div class="divider"></div>
+  <div class="row"><span class="stage">↓ Linearization</span><span class="strands"><span class="bar ss"></span></span></div>
+  <div class="row"><span class="stage"></span><span class="note">one orientation cleaved + washed → ss template, uniform direction</span></div>
+  <div class="divider"></div>
+  <div class="row"><span class="stage">Read 1 + indexes</span><span class="strands"><span class="bar ss"></span></span></div>
+  <div class="row"><span class="stage">↓ Turnaround</span><span class="strands"><span class="bar ss"></span></span></div>
+  <div class="row"><span class="stage"></span><span class="note">rebuild opposite strand, remove original → ss template, flipped direction</span></div>
+  <div class="divider"></div>
+  <div class="row"><span class="stage">Read 2</span><span class="strands"><span class="bar ss"></span></span></div>
+</div>
+
+<h2>Check yourself</h2>
+<p class="aside">From memory — no peeking at the tables.</p>
+
+<div class="quiz" data-answer="1">
+  <div class="q">Your run reports 2×100. How many SBS cycles were spent reading insert bases (ignoring index reads)?</div>
+  <button class="opt" data-why="100 would be single-end; 2×100 reads both ends.">100</button>
+  <button class="opt" data-why="Right — 100 cycles for Read 1 plus 100 for Read 2 = 200 insert-reading cycles.">200</button>
+  <button class="opt" data-why="That would be one 400-cycle read; paired-end splits into two 100s.">400</button>
+  <button class="opt" data-why="Cycle count is set by read length, not cluster count.">Depends on cluster count</button>
+  <div class="fb"></div>
+</div>
+
+<div class="quiz" data-answer="2">
+  <div class="q">On a 2-channel instrument, a base that lights up <em>neither</em> the red nor green channel is called…</div>
+  <button class="opt" data-why="A lights BOTH channels.">A</button>
+  <button class="opt" data-why="C is red-only.">C</button>
+  <button class="opt" data-why="Right — G is the no-signal base, which is why dead clusters produce poly-G tails.">G</button>
+  <button class="opt" data-why="T is green-only.">T</button>
+  <div class="fb"></div>
+</div>
+
+<div class="quiz" data-answer="0">
+  <div class="q">Why does per-cycle base quality tend to drop toward the end of a read?</div>
+  <button class="opt" data-why="Right — clusters lose sync over cycles (phasing/pre-phasing), so late-cycle signal is noisier.">Clusters de-synchronize over cycles (phasing)</button>
+  <button class="opt" data-why="Read length is chosen up front; it doesn't consume indexes.">Later cycles run out of index bases</button>
+  <button class="opt" data-why="All four dNTPs are present every cycle; they don't deplete this way.">The machine runs out of one nucleotide</button>
+  <button class="opt" data-why="Clusters are fixed once formed; they don't shrink mid-read.">Clusters physically shrink each cycle</button>
+  <div class="fb"></div>
+</div>
+
+<div class="quiz" data-answer="3">
+  <div class="q">Read 2 reads the insert from the opposite end. Where does the strand it reads come from?</div>
+  <button class="opt" data-why="No — a paired-end run is one continuous run on the same clusters, not two.">A second, separate sequencing run</button>
+  <button class="opt" data-why="The original strand was used for Read 1 and is cleaved off during the turnaround.">The original Read 1 template strand</button>
+  <button class="opt" data-why="Index reads use short primers and don't build the Read 2 template.">Left over from the index reads</button>
+  <button class="opt" data-why="Right — the turnaround rebuilds the complementary strand mid-run, then removes the original.">A new strand synthesized in the turnaround</button>
+  <div class="fb"></div>
+</div>
+
+<div class="quiz" data-answer="0">
+  <div class="q">During a run, how does the instrument "switch" from reading the insert to reading the i7 index?</div>
+  <button class="opt" data-why="Right — each read is launched by annealing a different primer that binds only its matching site.">It anneals a different primer</button>
+  <button class="opt" data-why="Nothing is physically aimed; the camera images the whole flow cell every cycle.">It aims the camera at the i7 region</button>
+  <button class="opt" data-why="The molecule is fixed in place; it isn't repositioned between reads.">It flips the molecule around</button>
+  <button class="opt" data-why="Indexes are read in dedicated cycles, never extracted from within R1.">It extracts i7 from the R1 sequence</button>
+  <div class="fb"></div>
+</div>
+
+<hr class="rule">
+
+<h2>Read this next</h2>
+<p><strong>Primary source (highest-trust):</strong>
+<a href="https://emea.illumina.com/science/technology/next-generation-sequencing/sequencing-technology.html">
+Illumina — Sequencing Technology (SBS overview)</a>, and for the channel logic,
+<a href="https://www.illumina.com/science/technology/next-generation-sequencing/sequencing-technology/2-channel-sbs.html">
+2-Channel SBS Technology</a>. For the four-reads sequence and the i5-orientation workflows, the
+definitive source is the
+<a href="https://support.illumina.com/content/dam/illumina-support/documents/documentation/system_documentation/miseq/indexed-sequencing-overview-guide-15057455-08.pdf">Illumina Indexed Sequencing Overview Guide (PDF)</a>.</p>
+
+<div class="ask">
+  <strong>Ask me anything.</strong> Want the real dye chemistry? Curious how phasing gets
+  <em>corrected</em> in the base-caller? Wondering why NovaSeq needs a PhiX spike-in for
+  low-diversity libraries? Those are all one question away — and they shape whether Lesson 3
+  (demux &amp; index hopping) or a QC-artifacts detour comes next.
+</div>
+
+<div class="lesson-nav">
+  <span><a href="0001-anatomy-of-a-library-molecule.html">← Lesson 1</a> · <a href="../reference/glossary.html">Glossary</a></span>
+  <span><a href="0003-demux-index-hopping-and-the-i5-flip.html">Next: demux, index hopping &amp; the i5 flip →</a></span>
+</div>
+
+<script src="../assets/quiz.js"></script>
+<script src="../assets/sbs-stepper.js"></script>
+</body>
+</html>

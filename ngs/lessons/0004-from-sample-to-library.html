@@ -1,0 +1,151 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Lesson 4 — From Sample to Library</title>
+<link rel="stylesheet" href="../assets/style.css">
+</head>
+<body>
+<p class="eyebrow">NGS Foundations · Lesson 4</p>
+<h1>From sample to library</h1>
+<p class="aside">How the wetlab turns a tube of tissue into the adapter-flanked molecule you've been reading — and why DNA-seq, RNA-seq &amp; friends diverge.</p>
+
+<p>So far you've built the finished library molecule (<a href="0001-anatomy-of-a-library-molecule.html">L1</a>),
+read it (<a href="0002-how-the-molecule-gets-read.html">L2</a>), and demuxed it
+(<a href="0003-demux-index-hopping-and-the-i5-flip.html">L3</a>). But that molecule doesn't arrive
+ready-made — the wetlab <em>builds</em> it. This lesson is
+<span class="term">library prep</span>: the bench workflow that converts raw sample nucleic acid
+into sequenceable molecules. Understand its skeleton and you can predict the QC signature of any
+prep that crosses your desk.</p>
+
+<h2>Every prep answers the same three questions</h2>
+<p>The dizzying catalog of kits is really variations on one recipe. Every library prep must:</p>
+<ol>
+  <li><strong>Get the nucleic acid of interest</strong> — and enrich away what you don't want.</li>
+  <li><strong>Cut it to the right size</strong> — an insert that matches your read length.</li>
+  <li><strong>Attach the adapters</strong> — the P5 / i5 / SP1 … SP2 / i7 / P7 scaffold from
+  <a href="0001-anatomy-of-a-library-molecule.html">Lesson 1</a>.</li>
+</ol>
+<p>Different assays answer these differently. That's the whole map.</p>
+
+<h2>Two ways to attach adapters</h2>
+<p>Question 3 splits the field into two dominant chemistries:</p>
+
+<h3>Ligation-based (e.g. TruSeq)</h3>
+<div class="readsteps"><ol class="readsteps" style="margin:0;">
+  <li><span class="rs-title">Fragment</span><div class="rs-body">Shear or enzymatically cut DNA to ~200–500 bp.</div></li>
+  <li><span class="rs-title">End repair + A-tailing</span><div class="rs-body">Blunt the ragged ends, add a single 3′ A so a T-tailed adapter can pair.</div></li>
+  <li><span class="rs-title">Ligate adapters</span><div class="rs-body">T4 ligase joins adapters to both ends.</div></li>
+  <li><span class="rs-title">PCR</span><div class="rs-body">Amplify and, in many kits, add the indexes.</div></li>
+</ol></div>
+<p class="aside">Robust, works across a wide input range, low bias — the workhorse for WGS and RNA.</p>
+
+<h3>Tagmentation (e.g. Nextera)</h3>
+<p>A hyperactive <span class="term">Tn5 transposase</span> pre-loaded with adapters
+<strong>cuts the DNA and inserts the adapters in a single step</strong> — collapsing fragmentation,
+end-repair, and ligation into one reaction. Minutes instead of hours, tiny input, but more
+sequence bias and a distinctive insert-size pattern.</p>
+
+<div class="callout job">
+  <span class="label">Why this matters at your desk</span>
+  This is the origin of the two adapter families you trim against: <strong>TruSeq adapters vs
+  Nextera adapters are different sequences</strong> because they're attached by different chemistries.
+  When your trimmer auto-detects "Nextera transposase sequence," it's telling you the prep was
+  tagmentation. And insert size is set <em>here</em>, at fragmentation — if the insert is shorter
+  than your read length, sequencing runs off the end into the adapter
+  (<span class="term">adapter read-through</span>), which is exactly the adapter contamination you
+  trim. Short inserts → more trimming. It's not random; it's the prep.
+</div>
+
+<h2>The big divergence: DNA vs RNA</h2>
+<p>Here's the one that answers your earlier cDNA question. Illumina sequencing reads
+<em>DNA</em> — RNA can't bind the flow cell or be copied by the SBS polymerase. So an RNA library
+has extra steps <em>before</em> it rejoins the DNA workflow:</p>
+
+<div class="readsteps"><ol class="readsteps" style="margin:0;">
+  <li class="idx"><span class="rs-title">Enrich the RNA you want</span><div class="rs-body"><strong>PolyA selection</strong> (oligo-dT beads grab mRNA's polyA tail) for gene expression, or <strong>rRNA depletion</strong> (pull out ribosomal RNA) for total RNA. You must do one: rRNA is ~80–90% of total RNA and would otherwise eat your reads.</div></li>
+  <li class="idx"><span class="rs-title">Reverse-transcribe → 1st-strand cDNA</span><div class="rs-body">Reverse transcriptase copies RNA into a single strand of cDNA. <em>This is why your cDNA started single-stranded</em> (your L2 question).</div></li>
+  <li class="idx"><span class="rs-title">2nd-strand synthesis → ds cDNA</span><div class="rs-body">Make the complementary strand. Now you have double-stranded cDNA…</div></li>
+  <li><span class="rs-title">…now it's just DNA prep</span><div class="rs-body">Fragment (if not already), adapters, PCR — identical to the DNA workflow above.</div></li>
+</ol></div>
+
+<p>So <strong>DNA-seq and RNA-seq differ only at the front</strong>: RNA needs enrichment +
+reverse transcription to <em>become</em> DNA, then the two converge. WGS, WES, amplicon, and
+single-cell are all further front-end variations on the same back half.</p>
+
+<h3>Strandedness — a free consequence worth knowing</h3>
+<p>Plain cDNA loses track of which strand the RNA came from. <span class="term">Stranded</span>
+protocols preserve it by building the 2nd strand with <strong>dUTP</strong> instead of dTTP, then
+destroying that uracil-marked strand before amplification — so only the original orientation
+survives. <span class="aside">At your desk this is the <code>-s</code> / strandedness flag in
+featureCounts/HTSeq and the "reverse/forward" setting in Salmon. Guess it wrong and gene counts
+crater. Now you know what physically created the signal.</span></p>
+
+<h2>The rest of the zoo, in one table</h2>
+<p>Every row is just a different answer to the three questions:</p>
+
+<table style="width:100%; border-collapse:collapse; font-size:0.9rem; margin:1.2rem 0;">
+  <tr style="border-bottom:1px solid var(--rule); text-align:left;">
+    <th style="padding:0.4rem 0.5rem;">Assay</th><th style="padding:0.4rem 0.5rem;">Front-end twist</th><th style="padding:0.4rem 0.5rem;">QC fingerprint you'll see</th></tr>
+  <tr style="border-bottom:1px solid var(--rule);"><td style="padding:0.4rem 0.5rem;">WGS</td><td style="padding:0.4rem 0.5rem;">fragment whole genome, adapters</td><td style="padding:0.4rem 0.5rem;">even coverage, low duplication</td></tr>
+  <tr style="border-bottom:1px solid var(--rule);"><td style="padding:0.4rem 0.5rem;">WES / panel</td><td style="padding:0.4rem 0.5rem;">WGS library + <strong>hybrid capture</strong> (biotin probes pull down target regions)</td><td style="padding:0.4rem 0.5rem;">coverage spiked on targets, off-target tails</td></tr>
+  <tr style="border-bottom:1px solid var(--rule);"><td style="padding:0.4rem 0.5rem;">Amplicon / 16S</td><td style="padding:0.4rem 0.5rem;"><strong>PCR primers carry the adapters</strong>; no fragmentation</td><td style="padding:0.4rem 0.5rem;">low diversity, high duplication → PhiX spike needed</td></tr>
+  <tr style="border-bottom:1px solid var(--rule);"><td style="padding:0.4rem 0.5rem;">RNA-seq</td><td style="padding:0.4rem 0.5rem;">enrich + reverse transcribe (above)</td><td style="padding:0.4rem 0.5rem;">3′ bias (polyA), check rRNA fraction</td></tr>
+  <tr><td style="padding:0.4rem 0.5rem;">ATAC / methyl / ChIP</td><td style="padding:0.4rem 0.5rem;">Tn5 on open chromatin / bisulfite conversion / IP pulldown</td><td style="padding:0.4rem 0.5rem;">assay-specific enrichment patterns</td></tr>
+</table>
+
+<h2>Check yourself</h2>
+<p class="aside">From memory.</p>
+
+<div class="quiz" data-answer="1">
+  <div class="q">Why does an RNA-seq library require reverse transcription but a WGS library does not?</div>
+  <button class="opt" data-why="RNA is single-stranded, but that's not why RT is needed — the SBS polymerase can't use RNA at all.">Because RNA is single-stranded</button>
+  <button class="opt" data-why="Right — Illumina reads DNA; RNA must be copied into cDNA before it can cluster and be sequenced.">Sequencing reads DNA, so RNA must become cDNA first</button>
+  <button class="opt" data-why="RNA fragments fine; conversion to cDNA is the actual blocker.">Because RNA can't be fragmented</button>
+  <button class="opt" data-why="Adapters ligate to cDNA the same way; the issue is getting to DNA at all.">Because RNA can't hold adapters</button>
+  <div class="fb"></div>
+</div>
+
+<div class="quiz" data-answer="2">
+  <div class="q">A total-RNA library skipped its enrichment step. What dominates the reads?</div>
+  <button class="opt" data-why="Adapter dimers come from prep errors, not skipped enrichment.">Adapter dimers</button>
+  <button class="opt" data-why="PhiX is a deliberate spike-in, not a contaminant from skipping enrichment.">PhiX control reads</button>
+  <button class="opt" data-why="Right — rRNA is ~80–90% of total RNA; without depletion it swamps the library.">Ribosomal RNA</button>
+  <button class="opt" data-why="Mitochondrial reads are a minor fraction, not the dominant one here.">Mitochondrial DNA</button>
+  <div class="fb"></div>
+</div>
+
+<div class="quiz" data-answer="0">
+  <div class="q">Your trimmer reports heavy 'Nextera transposase' adapter content. What does that tell you about the prep — and the inserts?</div>
+  <button class="opt" data-why="Right — Nextera = tagmentation; heavy read-through means inserts are shorter than the read length.">Tagmentation prep, and inserts shorter than the read</button>
+  <button class="opt" data-why="TruSeq uses different adapter sequences; Nextera signals tagmentation.">Ligation TruSeq prep with long inserts</button>
+  <button class="opt" data-why="Adapter content reflects insert size and chemistry, not the index scheme.">The pool used combinatorial indexes</button>
+  <button class="opt" data-why="Adapter read-through is about insert length vs read length, not RNA vs DNA.">The sample was RNA, not DNA</button>
+  <div class="fb"></div>
+</div>
+
+<hr class="rule">
+
+<h2>Read this next</h2>
+<p><strong>Primary sources:</strong>
+<a href="https://www.idtdna.com/pages/technology/next-generation-sequencing/library-preparation">IDT — NGS Library Preparation overview</a>
+for the ligation vs tagmentation workflows, and
+<a href="https://www.nature.com/articles/s41598-018-23226-4">this peer-reviewed comparison of polyA selection vs rRNA depletion</a>
+for the RNA front-end trade-offs.</p>
+
+<div class="ask">
+  <strong>Ask me anything.</strong> Want the hybrid-capture (exome) workflow in detail? Curious how
+  UMIs get added during prep to remove PCR duplicates? Or how amplicon low-diversity actually breaks
+  the base-caller? Next lesson answers a question this one sets up: once a library holds thousands of
+  cells, what even <em>is</em> a "sample"?
+</div>
+
+<div class="lesson-nav">
+  <span><a href="0003-demux-index-hopping-and-the-i5-flip.html">← Lesson 3</a> · <a href="../reference/glossary.html">Glossary</a></span>
+  <span><a href="0005-what-is-a-sample-bulk-vs-single-cell.html">Next: what is a "sample"? →</a></span>
+</div>
+
+<script src="../assets/quiz.js"></script>
+</body>
+</html>

@@ -1,0 +1,152 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Lesson 1 — Anatomy of a Library Molecule</title>
+<link rel="stylesheet" href="../assets/style.css">
+</head>
+<body>
+<p class="eyebrow">NGS Foundations · Lesson 1</p>
+<h1>The anatomy of a library molecule</h1>
+<p class="aside">Where your FASTQ files come from — read from the molecule outward.</p>
+
+<p>You already live at the <em>output</em> end of sequencing: a run finishes, you get
+<span class="mono">R1</span>, <span class="mono">R2</span>, sometimes <span class="mono">I1</span>/<span class="mono">I2</span>
+files, an <span class="mono">Undetermined</span> pile, and a sample sheet. This lesson works
+in the other direction. If you understand the single molecule that produced those files,
+every artifact you handle downstream stops being a convention you memorized and becomes
+something you can <em>derive</em>.</p>
+
+<p>One tangible win by the end: <strong>you'll be able to draw the molecule from memory and
+point to exactly which segment produces each file demux hands you.</strong></p>
+
+<h2>The molecule, end to end</h2>
+
+<p>Every fragment your wetlab team hands the sequencer has been dressed up with
+<span class="term">adapters</span> on both ends. The sample DNA in the middle is the
+<span class="term">insert</span> — the only part you actually care about biologically.
+Everything else is machinery. Here it is, 5′ → 3′ along the top strand:</p>
+
+<div class="molecule">
+  <div class="seg seg-p5">P5<small>flow-cell</small></div>
+  <div class="seg seg-index">i5<small>Index 2</small></div>
+  <div class="seg seg-primer">SP1<small>Read 1 primer</small></div>
+  <div class="seg seg-insert">INSERT<small>your sample DNA / cDNA</small></div>
+  <div class="seg seg-primer">SP2<small>Read 2 primer</small></div>
+  <div class="seg seg-index">i7<small>Index 1</small></div>
+  <div class="seg seg-p7">P7<small>flow-cell</small></div>
+</div>
+
+<div class="legend">
+  <span><i class="swatch" style="background:var(--p5)"></i>P5 / P7 — grab the flow cell</span>
+  <span><i class="swatch" style="background:var(--index)"></i>i5 / i7 — sample barcodes</span>
+  <span><i class="swatch" style="background:var(--primer)"></i>SP1 / SP2 — where reading starts</span>
+  <span><i class="swatch" style="background:var(--insert)"></i>insert — the DNA of interest</span>
+</div>
+
+<p>Three jobs, three kinds of segment:</p>
+
+<h3>1 · P5 and P7 — attachment</h3>
+<p>The flow cell surface is a lawn of two grafted oligos. <span class="term">P5</span> and
+<span class="term">P7</span> are the universal ends of your molecule that hybridize to that
+lawn. This is <em>how a molecule sticks to the flow cell and seeds a cluster</em> — a clonal
+copy-cluster bright enough to image. No P5/P7, no cluster, no read.
+<a href="../reference/glossary.html">(glossary: cluster, SBS)</a></p>
+
+<h3>2 · i5 and i7 — identity</h3>
+<p>The two <span class="term">index</span> barcodes say which <em>sample</em> this molecule
+came from. Because they're baked into the adapter, dozens or hundreds of samples can share one
+lane and be told apart later. This is the physical basis of
+<span class="term">multiplexing</span> — and of the demux you run.</p>
+
+<h3>3 · SP1 and SP2 — where reading begins</h3>
+<p>A <span class="term">sequencing primer</span> has to anneal somewhere before synthesis can
+start. SP1 sits just upstream of the insert on the P5 side and launches <strong>Read 1</strong>
+into the insert. SP2 launches <strong>Read 2</strong> from the P7 side, reading the insert from
+the opposite end. That opposite-ends pair is exactly what <span class="term">paired-end</span>
+means.</p>
+
+<h2>The molecule → your four files</h2>
+
+<p>Here's the whole point. Each thing demux hands you is <em>one segment of this molecule read
+in one direction</em>:</p>
+
+<table style="width:100%; border-collapse:collapse; font-size:0.95rem; margin:1.2rem 0;">
+  <tr style="border-bottom:1px solid var(--rule); text-align:left;">
+    <th style="padding:0.4rem 0.5rem;">File</th><th style="padding:0.4rem 0.5rem;">Segment read</th><th style="padding:0.4rem 0.5rem;">Started from</th></tr>
+  <tr style="border-bottom:1px solid var(--rule);"><td class="mono" style="padding:0.4rem 0.5rem;">R1</td><td style="padding:0.4rem 0.5rem;">insert, P5→P7 direction</td><td style="padding:0.4rem 0.5rem;">SP1</td></tr>
+  <tr style="border-bottom:1px solid var(--rule);"><td class="mono" style="padding:0.4rem 0.5rem;">R2</td><td style="padding:0.4rem 0.5rem;">insert, P7→P5 direction</td><td style="padding:0.4rem 0.5rem;">SP2</td></tr>
+  <tr style="border-bottom:1px solid var(--rule);"><td class="mono" style="padding:0.4rem 0.5rem;">I1</td><td style="padding:0.4rem 0.5rem;">i7 barcode</td><td style="padding:0.4rem 0.5rem;">Index 1 read</td></tr>
+  <tr><td class="mono" style="padding:0.4rem 0.5rem;">I2</td><td style="padding:0.4rem 0.5rem;">i5 barcode</td><td style="padding:0.4rem 0.5rem;">Index 2 read</td></tr>
+</table>
+
+<p>The instrument reads these as up to four separate bursts of chemistry on the same cluster:
+Read 1, then Index 1, then Index 2, then Read 2. Demux never "finds" the index inside R1 — the
+index reads are <em>their own cycles</em>, physically separate from the insert. That's why a
+run with the wrong index cycle count silently produces garbage indexes and a mountain of
+<span class="mono">Undetermined</span>.</p>
+
+<div class="callout job">
+  <span class="label">Why this matters at your desk</span>
+  The i5 barcode is read from opposite strands depending on the instrument's chemistry, so the
+  <em>same physical index</em> appears as its <strong>reverse complement</strong> on some
+  instruments (NovaSeq, NextSeq, iSeq) versus others (MiSeq, HiSeq 2500). When a run demuxes to
+  near-100% Undetermined but the i7s look fine, a flipped i5 in the sample sheet is the usual
+  culprit — not a failed run. You now know <em>why</em> that flip exists: it's the same barcode,
+  read off the other strand. We'll dig into this in a later lesson.
+</div>
+
+<h2>Check yourself</h2>
+<p class="aside">Answer from memory — retrieval is what makes this stick.</p>
+
+<div class="quiz" data-answer="2">
+  <div class="q">A molecule fails to form a cluster on the flow cell at all. Which segment is most likely defective?</div>
+  <button class="opt" data-why="The insert is read after clustering — a bad insert still clusters.">The insert</button>
+  <button class="opt" data-why="Primer sites affect reading, not attachment — you'd still cluster.">The SP1 primer site</button>
+  <button class="opt" data-why="Right — P5/P7 hybridize to the flow-cell lawn; no P5/P7, no attachment, no cluster.">A P5 or P7 end</button>
+  <button class="opt" data-why="Indexes affect sample assignment, not whether a cluster forms.">The i7 index</button>
+  <div class="fb"></div>
+</div>
+
+<div class="quiz" data-answer="1">
+  <div class="q">Demux assigns a read to a sample by reading which segment(s)?</div>
+  <button class="opt" data-why="R1/R2 are the insert — they carry no sample identity.">The R1 and R2 insert bases</button>
+  <button class="opt" data-why="Right — the i7 and i5 index reads are matched against the sample sheet.">The i7 and i5 index reads</button>
+  <button class="opt" data-why="P5/P7 are universal — identical across all samples, so useless for telling them apart.">The P5 and P7 ends</button>
+  <button class="opt" data-why="The primer sites are also universal machinery, not sample-specific.">The SP1 and SP2 sites</button>
+  <div class="fb"></div>
+</div>
+
+<div class="quiz" data-answer="0">
+  <div class="q">Why does the "reverse-complement i5" gotcha exist at all?</div>
+  <button class="opt" data-why="Right — different instrument chemistries read the i5 off opposite strands, so the same barcode appears flipped.">Instruments read i5 from opposite strands</button>
+  <button class="opt" data-why="Index length is set by the kit, not the cause of the flip.">The i5 is longer on some machines</button>
+  <button class="opt" data-why="Demux software doesn't randomly reverse indexes; the flip is physical.">The demux tool reverses it by mistake</button>
+  <button class="opt" data-why="Both indexes are affected differently; this isn't about i7 vs i5 length.">The i7 overwrites the i5 signal</button>
+  <div class="fb"></div>
+</div>
+
+<hr class="rule">
+
+<h2>Read this next</h2>
+<p><strong>Primary source (highest-trust):</strong>
+<a href="https://www.umassmed.edu/contentassets/5ea3699998c442bb8c9b1a3cf95dbb24/illumina-library-structure.pdf">
+Illumina Library Structure — UMass Medical School (1-page PDF)</a>. It shows this same molecule
+with the <em>real adapter sequences</em> and both strands. Spend five minutes matching each
+colored segment above to the actual bases.</p>
+
+<div class="ask">
+  <strong>I'm your teacher — ask me anything.</strong> Unclear on tagmentation vs. ligation?
+  Want to see the real P5/P7 sequences? Curious how single-cell adds a cell barcode + UMI to
+  this same skeleton? Ask, and I'll build the next lesson around where you get stuck.
+</div>
+
+<div class="lesson-nav">
+  <span><a href="../reference/glossary.html">→ Glossary</a></span>
+  <span><a href="0002-how-the-molecule-gets-read.html">Next: how this molecule gets read →</a></span>
+</div>
+
+<script src="../assets/quiz.js"></script>
+</body>
+</html>

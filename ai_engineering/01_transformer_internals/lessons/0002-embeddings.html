@@ -1,0 +1,214 @@
+<meta charset="utf-8">
+<title>Lesson 2 · Embeddings</title>
+<link rel="stylesheet" href="../assets/course.css">
+<script src="../assets/quiz.js" defer></script>
+
+<p class="eyebrow">Transformer Internals · Movement I · Lesson 2</p>
+<h1>Embeddings: three things everyone calls the same word</h1>
+
+<div class="recall">
+  <span class="callout-label">Warm-up — recall from Lesson 1 (don't peek)</span>
+  Your prompt reached the model as a list of integer <em class="term">token</em> IDs like
+  <code>[9906, 11, 1917]</code>. But a neural net multiplies matrices — it can't do math on the
+  <em>label</em> "9906". <strong>So how does an integer ID become numbers the network can compute with?</strong>
+  Hold your answer; this lesson is the bridge.
+</div>
+
+<p>The answer is an <em class="term">embedding</em>: a vector of numbers that stands in for a token.
+The trouble is that "embedding" is used for <strong>three genuinely different things</strong>, and
+people conflate them constantly. Untangling them is today's win — and it's the difference between
+understanding a model's guts and understanding the embeddings API you call for search.</p>
+
+<h2>Type 1 — Token embeddings (the lookup table)</h2>
+
+<p>This is the bridge from Lesson 1. Inside the model sits one big matrix: the
+<em class="term">embedding table</em>, with one row per vocabulary entry —
+shape <code>[vocab_size × d_model]</code>, e.g. <code>[100000 × 2048]</code>. To embed token
+ID <code>9906</code>, you just <strong>grab row 9906</strong>. That's it. ID in, vector out.</p>
+
+<div class="note">
+  <span class="callout-label">Anchor to what you know</span>
+  This table is <strong>learned by backprop</strong>, exactly like any other weight matrix you know.
+  A lookup-by-ID is mathematically identical to multiplying a one-hot vector by a linear layer —
+  so a token embedding is <em>just a linear layer you already understand</em>, indexed instead of multiplied.
+</div>
+
+<p>Because they're learned, the rows arrange themselves so that <strong>direction encodes meaning</strong>.
+The famous demonstration: <code>vec("king") − vec("man") + vec("woman") ≈ vec("queen")</code>.<sup class="ref">1</sup>
+Similar words land near each other; consistent relationships become consistent directions.</p>
+
+<p>But note the ceiling: a token embedding is <strong>static</strong>. The word <code>"bank"</code>
+gets <em>one</em> row, the same vector whether you meant a river or a vault. Context hasn't entered yet.</p>
+
+<h2>Type 2 — Contextual embeddings (the model's output)</h2>
+
+<p>Now run those static vectors up through the transformer's layers. At each layer, attention
+lets every token <strong>mix in information from its neighbors</strong> (that's Movement II — we're
+foreshadowing). What comes out the top is a <em class="term">contextual embedding</em>: a vector for
+each token that has been reshaped by the specific sentence around it.</p>
+
+<p>Now <code>"bank"</code> in <em>"river bank"</em> and <code>"bank"</code> in <em>"bank loan"</em>
+get <strong>different</strong> vectors. Same starting row, different endings — because attention
+folded in different neighbors. This is the entire point of the architecture, previewed in one word.</p>
+
+<figure>
+<svg viewBox="0 0 640 260" role="img" aria-label="Diagram: token ID to static embedding to contextual embedding, and pooling to a sentence embedding">
+  <style>
+    .lbl{font-family:'Helvetica Neue',Arial,sans-serif;font-size:12px;fill:#4a4a4a}
+    .lblb{font-family:'Helvetica Neue',Arial,sans-serif;font-size:12px;fill:#a01818;font-weight:700}
+    .box{fill:#f4f2ec;stroke:#b9b3a0;stroke-width:1}
+    .vec{fill:#eef4f8;stroke:#1a5276;stroke-width:1}
+    .cvec{fill:#eef7f1;stroke:#1e7a46;stroke-width:1}
+    .svec{fill:#fbf3f2;stroke:#a01818;stroke-width:1}
+    .arw{stroke:#8a8a8a;stroke-width:1.5;marker-end:url(#a)}
+  </style>
+  <defs><marker id="a" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto">
+    <path d="M0,0 L6,3 L0,6 Z" fill="#8a8a8a"/></marker></defs>
+
+  <text x="20" y="20" class="lblb">TYPE 1 · static</text>
+  <rect x="20" y="35" width="60" height="26" class="box"/>
+  <text x="50" y="52" text-anchor="middle" class="lbl">ID 9906</text>
+  <line x1="82" y1="48" x2="118" y2="48" class="arw"/>
+  <rect x="120" y="30" width="26" height="90" class="vec"/>
+  <text x="133" y="140" text-anchor="middle" class="lbl">row</text>
+
+  <line x1="150" y1="75" x2="196" y2="75" class="arw"/>
+  <rect x="200" y="20" width="150" height="110" fill="none" stroke="#b9b3a0" stroke-dasharray="4 3"/>
+  <text x="275" y="15" text-anchor="middle" class="lbl">transformer layers (attention)</text>
+  <rect x="215" y="40" width="20" height="70" class="vec"/>
+  <rect x="245" y="40" width="20" height="70" class="vec"/>
+  <rect x="275" y="40" width="20" height="70" class="vec"/>
+  <rect x="305" y="40" width="20" height="70" class="vec"/>
+
+  <text x="380" y="20" class="lblb">TYPE 2 · contextual</text>
+  <line x1="352" y1="75" x2="396" y2="75" class="arw"/>
+  <rect x="400" y="40" width="20" height="70" class="cvec"/>
+  <rect x="424" y="40" width="20" height="70" class="cvec"/>
+  <rect x="448" y="40" width="20" height="70" class="cvec"/>
+  <rect x="472" y="40" width="20" height="70" class="cvec"/>
+  <text x="446" y="128" text-anchor="middle" class="lbl">one per token</text>
+
+  <text x="400" y="175" class="lblb">TYPE 3 · sentence</text>
+  <line x1="446" y1="118" x2="446" y2="190" class="arw"/>
+  <text x="360" y="205" text-anchor="middle" class="lbl">pool</text>
+  <rect x="400" y="195" width="92" height="24" class="svec"/>
+  <text x="446" y="211" text-anchor="middle" class="lbl">1 vector / text</text>
+</svg>
+<figcaption>ID → static row (Type 1) → contextual vectors after attention (Type 2) → pooled into one sentence vector (Type 3).</figcaption>
+</figure>
+
+<h2>Type 3 — Sentence embeddings (one vector per text)</h2>
+
+<p>Sometimes you don't want a vector per token — you want <strong>one vector for a whole sentence
+or document</strong>, so you can measure how similar two texts are. That's a
+<em class="term">sentence embedding</em>. It's typically made by <strong>pooling</strong> the
+contextual embeddings (e.g. averaging them) — often from a model fine-tuned specifically for the job.</p>
+
+<div class="payoff">
+  <span class="callout-label">The practical payoff — this is what your embeddings API returns</span>
+  When you call an embeddings endpoint for <strong>semantic search or RAG</strong>, you get back
+  <em>Type 3</em>: one vector per chunk. You store them and rank by <strong>cosine similarity</strong>
+  (angle between vectors) to find text with similar meaning. The "embeddings" in your vector database
+  are <em>not</em> the token-embedding table buried inside the model — a distinction almost everyone blurs.
+</div>
+
+<h2>The one distinction to keep straight</h2>
+<table style="width:100%;border-collapse:collapse;font-family:var(--font-sans);font-size:0.85rem;margin:1.2rem 0">
+  <tr style="border-bottom:2px solid var(--rule);text-align:left">
+    <th style="padding:0.4rem">Type</th><th>Granularity</th><th>Context-aware?</th><th>You meet it as…</th></tr>
+  <tr style="border-bottom:1px solid var(--rule)">
+    <td style="padding:0.4rem"><strong>Token</strong></td><td>per token</td><td>No — static</td><td>the lookup table inside the model</td></tr>
+  <tr style="border-bottom:1px solid var(--rule)">
+    <td style="padding:0.4rem"><strong>Contextual</strong></td><td>per token</td><td>Yes</td><td>the model's internal layer outputs</td></tr>
+  <tr>
+    <td style="padding:0.4rem"><strong>Sentence</strong></td><td>per text</td><td>Yes (pooled)</td><td>the embeddings API for search/RAG</td></tr>
+</table>
+
+<h2>Check yourself</h2>
+<p>Answer from memory first.</p>
+<div id="mcq"></div>
+
+<h3>Now sort them (mixing all three)</h3>
+<p>For each scenario, tap the embedding type it describes. This interleaving — jumping between the
+three — is exactly what builds a durable distinction.</p>
+<div id="classify"></div>
+
+<div class="primary">
+  <span class="callout-label">Primary source — watch this next</span>
+  <a href="https://www.youtube.com/watch?v=yMQPQuz5WpA">3Blue1Brown — "But what is a GPT?" (ch. 5)</a>
+  spends its heart on embeddings: the lookup table, the king−man+woman direction, and how meaning
+  becomes geometry. Pair with <a href="https://jalammar.github.io/illustrated-transformer/">The Illustrated Transformer</a>
+  for how contextual embeddings form.
+</div>
+
+<h2>The one-sentence win</h2>
+<p>You can now separate the three "embeddings" people constantly conflate: a <strong>static lookup
+row</strong> (token), the <strong>context-mixed vector</strong> the model outputs (contextual), and
+the <strong>one-vector-per-text</strong> you store for search (sentence) — and you know your RAG
+pipeline uses the third, not the first.</p>
+
+<div class="ask">
+  💬 Ask me anything: "show cosine similarity on two real sentences", "why does averaging tokens
+  even work?", or "how big is d_model in GPT-4?" I'm your teacher.
+</div>
+
+<nav class="lesson-nav">
+  <span><a href="0001-tokenization.html">← Lesson 1: Tokenization</a> · <a href="../reference/GLOSSARY.html">📖 Glossary</a></span>
+  <span>Next → <em>Lesson 3: Attention</em> (ask me to build it)</span>
+</nav>
+
+<hr style="border:none;border-top:1px solid var(--rule);margin:2.5rem 0 1rem">
+<p class="cite"><sup class="ref">1</sup> The king−man+woman result is the classic word-vector demonstration; see
+<a href="https://www.youtube.com/watch?v=yMQPQuz5WpA">3Blue1Brown ch.5</a> and
+<a href="https://jalammar.github.io/illustrated-transformer/">The Illustrated Transformer</a>.</p>
+
+<script>
+document.addEventListener("DOMContentLoaded", () => {
+  Quiz.mcq("mcq", [
+    {
+      q: "A token embedding is best described as what?",
+      options: [
+        "A learned table mapping each ID to vectors",
+        "A rule that counts letters inside each word",
+        "A fixed list of every sentence seen before"
+      ],
+      correct: 0,
+      why: "Right — a learned lookup table, row per token, trained by backprop."
+    },
+    {
+      q: "Why does 'bank' get different contextual embeddings?",
+      options: [
+        "The tokenizer assigns it a brand new ID",
+        "Attention mixes in the surrounding words each time",
+        "Sentence embeddings are averaged before the lookup"
+      ],
+      correct: 1,
+      why: "Right — attention folds in the neighbors, so context reshapes the vector."
+    },
+    {
+      q: "Which embedding does a semantic-search / RAG pipeline store?",
+      options: [
+        "The raw token IDs straight from the tokenizer",
+        "One static vector per word from the table",
+        "A single vector representing a whole text chunk"
+      ],
+      correct: 2,
+      why: "Right — a sentence embedding: one vector per chunk, ranked by cosine similarity."
+    }
+  ]);
+
+  Quiz.classify("classify", {
+    categories: ["Token", "Contextual", "Sentence"],
+    items: [
+      { text: "The model turns ID 9906 into row 9906 of its table.",
+        answer: "Token", why: "Static lookup — no context yet." },
+      { text: "The vector for 'bank' after the model reads 'river bank'.",
+        answer: "Contextual", why: "Reshaped by neighbors via attention." },
+      { text: "The one vector you push into a vector DB for search.",
+        answer: "Sentence", why: "One vector per whole chunk of text." },
+      { text: "The 'king − man + woman ≈ queen' analogy vectors.",
+        answer: "Token", why: "Classic static word-vector geometry — pre-context." }
+    ]
+  });
+});
+</script>

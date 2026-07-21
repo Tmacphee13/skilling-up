@@ -1,0 +1,155 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Lesson 5 — What Is a "Sample"? Bulk vs Single-Cell</title>
+<link rel="stylesheet" href="../assets/style.css">
+</head>
+<body>
+<p class="eyebrow">NGS Foundations · Lesson 5</p>
+<h1>What is a "sample"? Bulk vs single-cell</h1>
+<p class="aside">The word "sample" quietly means two different things — and single-cell adds a second demux you already know how to reason about.</p>
+
+<p>In <a href="0003-demux-index-hopping-and-the-i5-flip.html">Lesson 3</a> the sample index
+(i7/i5) <em>was</em> identity: one library, one sample, demux resolves the pool to samples. That's
+<strong>bulk</strong> sequencing, and it hides an assumption. Single-cell breaks it — and the way
+it breaks it turns out to be the demux skill you already have, applied one level deeper.</p>
+
+<h2>Bulk: one library = one sample</h2>
+<p>You take a tube — a tissue, a blood draw, a culture — extract its nucleic acid, and build
+<em>one</em> library with <em>one</em> sample index. Every cell in that tube is mixed together and
+averaged. When you demux, the sample index tells you which tube a read came from, and that's the
+finest identity that exists. <strong>Identity has one level: the sample index.</strong></p>
+
+<div class="molecule">
+  <div class="seg seg-index">i7 / i5<small>which sample</small></div>
+  <div class="seg seg-cdna">R2: cDNA / DNA insert<small>the biology</small></div>
+</div>
+
+<h2>Single-cell: one library = one sample = thousands of cells</h2>
+<p>A single-cell run still makes <em>one library with one sample index</em> — but that library now
+contains thousands of cells, and you want to keep them apart. You can't give each cell its own
+sample index (you'd need thousands of libraries). Instead, two more barcodes are added
+<strong>inside the read itself</strong>, during prep, when each cell is captured in its own droplet:</p>
+
+<ul>
+  <li><strong>Cell barcode (16 bp)</strong> — every molecule from the same cell gets the same
+  barcode, drawn from a fixed <span class="term">whitelist</span> of ~3.5 million known
+  sequences. This says <em>which cell</em>.</li>
+  <li><strong>UMI (12 bp)</strong> — a random tag unique to each original molecule, so PCR copies
+  of the same molecule share a UMI. This says <em>which original molecule</em>, letting you collapse
+  duplicates and <strong>count molecules, not reads</strong>.</li>
+</ul>
+
+<h2>The read structure — where every identity lives</h2>
+<p>Here's the whole thing for a 10x 3′ library. Notice how the reads divide the labor:</p>
+
+<div class="molecule">
+  <div class="seg seg-index">I1<small>sample index</small></div>
+  <div class="seg seg-barcode">R1: cell barcode<small>16 bp — which cell</small></div>
+  <div class="seg seg-umi">+ UMI<small>12 bp — which molecule</small></div>
+  <div class="seg seg-cdna">R2: cDNA<small>the transcript</small></div>
+</div>
+
+<div class="legend">
+  <span><i class="swatch" style="background:var(--index)"></i>I1 — sample index (which library)</span>
+  <span><i class="swatch" style="background:#6b4e9c"></i>R1 cell barcode (which cell)</span>
+  <span><i class="swatch" style="background:#b5486b"></i>R1 UMI (which molecule)</span>
+  <span><i class="swatch" style="background:var(--insert)"></i>R2 cDNA (the biology)</span>
+</div>
+
+<p>So the files you'd hand off carry <strong>three nested levels of identity</strong>:</p>
+
+<table style="width:100%; border-collapse:collapse; font-size:0.93rem; margin:1.2rem 0;">
+  <tr style="border-bottom:1px solid var(--rule); text-align:left;">
+    <th style="padding:0.4rem 0.5rem;">Level</th><th style="padding:0.4rem 0.5rem;">Barcode</th><th style="padding:0.4rem 0.5rem;">Lives in</th><th style="padding:0.4rem 0.5rem;">Resolved by</th></tr>
+  <tr style="border-bottom:1px solid var(--rule);"><td style="padding:0.4rem 0.5rem;">Which <strong>library</strong>?</td><td style="padding:0.4rem 0.5rem;">sample index</td><td class="mono" style="padding:0.4rem 0.5rem;">I1 (/I2)</td><td style="padding:0.4rem 0.5rem;">BCL Convert (your L3 demux)</td></tr>
+  <tr style="border-bottom:1px solid var(--rule);"><td style="padding:0.4rem 0.5rem;">Which <strong>cell</strong>?</td><td style="padding:0.4rem 0.5rem;">cell barcode</td><td class="mono" style="padding:0.4rem 0.5rem;">R1[0:16]</td><td style="padding:0.4rem 0.5rem;">Cell Ranger</td></tr>
+  <tr><td style="padding:0.4rem 0.5rem;">Which <strong>molecule</strong>?</td><td style="padding:0.4rem 0.5rem;">UMI</td><td class="mono" style="padding:0.4rem 0.5rem;">R1[16:28]</td><td style="padding:0.4rem 0.5rem;">Cell Ranger (dedup)</td></tr>
+</table>
+
+<div class="callout">
+  <span class="label">The unlock</span>
+  <strong>Cell-barcode demux is the same operation as sample demux</strong> — match an observed
+  barcode against a known list, within a small mismatch tolerance, and bin the read. The whitelist
+  is just a "sample sheet" with 3.5 million rows, and it's applied to <em>R1</em> by Cell Ranger
+  instead of to <em>I1</em> by BCL Convert. Everything you learned in
+  <a href="0003-demux-index-hopping-and-the-i5-flip.html">Lesson 3</a> — mismatch budgets, ambiguous
+  matches, unknown-barcode diagnostics — transfers directly. Single-cell is just <em>demux within
+  demux.</em>
+</div>
+
+<h2>Why the reads are lopsided</h2>
+<p>You only need 28 bp of R1 — exactly the cell barcode + UMI — and there's no biology past it, so
+R1 is short. R2 carries the actual transcript and gets the long read. That's why single-cell run
+configs look asymmetric, like <span class="mono">28 × 90</span>. <span class="aside">Set R1 too
+short and you can't parse the barcode/UMI at all — a run-config mistake that makes the data
+unusable, and one worth catching before the run, not after.</span></p>
+
+<h2>Two failure modes worth a name</h2>
+<ul>
+  <li><strong>Doublets</strong> — two cells captured in one droplet share a cell barcode, looking
+  like one weird hybrid cell.</li>
+  <li><strong>Ambient RNA</strong> — free-floating RNA from lysed cells gets a random barcode,
+  smearing background signal into every cell. <span class="aside">This is also why single-cell is
+  extra-sensitive to index hopping — another reason these runs should use UDI (L3).</span></li>
+</ul>
+<p class="aside">Spatial assays reuse this exact machinery, but the barcode encodes a
+<em>location</em> on a slide instead of a droplet — "which cell?" becomes "which spot?"</p>
+
+<h2>Check yourself</h2>
+<p class="aside">From memory.</p>
+
+<div class="quiz" data-answer="2">
+  <div class="q">In a 10x single-cell run, what distinguishes reads coming from two different cells in the same library?</div>
+  <button class="opt" data-why="The sample index identifies the library, which both cells share.">Their sample index (i7/i5)</button>
+  <button class="opt" data-why="The UMI distinguishes molecules within a cell, not cells from each other.">Their UMI</button>
+  <button class="opt" data-why="Right — the cell barcode in R1 is the per-cell identity.">Their cell barcode in R1</button>
+  <button class="opt" data-why="R2 is the transcript; it carries biology, not cell identity.">Their R2 cDNA sequence</button>
+  <div class="fb"></div>
+</div>
+
+<div class="quiz" data-answer="0">
+  <div class="q">What is the point of the UMI?</div>
+  <button class="opt" data-why="Right — molecules sharing a UMI+barcode are PCR copies, so you count molecules, not reads.">Collapse PCR duplicates to count original molecules</button>
+  <button class="opt" data-why="That's the cell barcode's job, not the UMI's.">Identify which cell a read came from</button>
+  <button class="opt" data-why="Sample demux uses the sample index, not the UMI.">Assign the read to a sample during demux</button>
+  <button class="opt" data-why="Adapter trimming is unrelated to the UMI.">Mark where to trim the adapter</button>
+  <div class="fb"></div>
+</div>
+
+<div class="quiz" data-answer="1">
+  <div class="q">Conceptually, matching a cell barcode to the 10x whitelist is most like which earlier step?</div>
+  <button class="opt" data-why="Reverse transcription is a prep step, not a barcode-matching one.">Reverse transcription of RNA to cDNA</button>
+  <button class="opt" data-why="Right — it's demux again: match an observed barcode to a known list within a mismatch budget.">Sample demux against a sample sheet</button>
+  <button class="opt" data-why="The turnaround rebuilds a strand; it doesn't match barcodes.">The paired-end turnaround</button>
+  <button class="opt" data-why="Clustering copies a molecule; it doesn't assign identity from a list.">Cluster generation on the flow cell</button>
+  <div class="fb"></div>
+</div>
+
+<hr class="rule">
+
+<h2>Read this next</h2>
+<p><strong>Primary source:</strong> the
+<a href="https://scg-lib-structs.readthedocs.io/en/latest/ge/10xChromium3v3.html">10x Chromium 3′ v3 library-structure reference (scg_lib_structs)</a>
+lays out the exact base layout of R1/R2/I1 with the barcode and UMI positions. For the processing
+side, <a href="https://www.10xgenomics.com/support/software/cell-ranger/latest">Cell Ranger's docs</a>
+show the whitelist-matching and UMI-dedup steps.</p>
+
+<div class="ask">
+  <strong>Ask me anything.</strong> Want to see how Cell Ranger corrects a 1-mismatch cell barcode,
+  exactly like demux? Curious about feature barcoding (CITE-seq / hashing), where <em>more</em>
+  barcodes stack on this same read? Or ready to pivot to project design — coverage, depth, and read
+  length (Lesson 6)? You've now got the full molecule → read → demux → prep → sample foundation to
+  reason about all of it.
+</div>
+
+<div class="lesson-nav">
+  <span><a href="0004-from-sample-to-library.html">← Lesson 4</a> · <a href="../reference/glossary.html">Glossary</a></span>
+  <span class="aside">Next up: project design — coverage, depth &amp; read length.</span>
+</div>
+
+<script src="../assets/quiz.js"></script>
+</body>
+</html>
