@@ -1,0 +1,243 @@
+<meta charset="utf-8">
+<title>Lesson 3 · Attention</title>
+<link rel="stylesheet" href="../assets/course.css">
+<script src="../assets/quiz.js" defer></script>
+
+<p class="eyebrow">Transformer Internals · Movement II · Lesson 3</p>
+<h1>Attention: how one token reads the room</h1>
+
+<div class="recall">
+  <span class="callout-label">Warm-up — recall from Lesson 2 (don't peek)</span>
+  In Lesson 2 we said the word <code>"bank"</code> starts as <strong>one static row</strong> from the
+  embedding table, then comes out the top of the model as a <em class="term">contextual embedding</em>
+  that differs between <em>"river bank"</em> and <em>"bank loan"</em>. We waved a hand and said
+  <em>"attention mixes in the neighbors."</em> <strong>This lesson is that hand-wave, made mechanical.</strong>
+</div>
+
+<p>Here's the whole idea in one sentence: <strong>attention lets each token pull in information from
+the other tokens, weighted by how relevant each one is.</strong> Every token gets to look around at
+the sequence and decide, <em>"which of these others should reshape me?"</em> — and then it blends them
+in. That reshaping <em>is</em> the contextual embedding. Landing how the weighting works is today's win.</p>
+
+<h2>The mental model: a soft dictionary lookup</h2>
+
+<p>A normal dictionary lookup is <strong>hard</strong>: you hand it a key, it returns the one value that
+matches exactly. Attention is the <strong>soft</strong> version — every entry matches a <em>little</em>,
+and you get back a <em>blend</em> of all their values, weighted by how well each matched.<sup class="ref">1</sup>
+Three roles make it work, and each token produces all three:</p>
+
+<table style="width:100%;border-collapse:collapse;font-family:var(--font-sans);font-size:0.85rem;margin:1.2rem 0">
+  <tr style="border-bottom:2px solid var(--rule);text-align:left">
+    <th style="padding:0.4rem">Role</th><th>Question it answers</th><th>Dictionary analogy</th></tr>
+  <tr style="border-bottom:1px solid var(--rule)">
+    <td style="padding:0.4rem"><strong><span style="color:var(--accent)">Query</span></strong></td>
+    <td>"What am I looking for?"</td><td>the key you type in</td></tr>
+  <tr style="border-bottom:1px solid var(--rule)">
+    <td style="padding:0.4rem"><strong><span style="color:var(--link)">Key</span></strong></td>
+    <td>"What do I have to offer?"</td><td>each entry's label</td></tr>
+  <tr>
+    <td style="padding:0.4rem"><strong><span style="color:var(--good)">Value</span></strong></td>
+    <td>"What will I contribute if picked?"</td><td>each entry's content</td></tr>
+</table>
+
+<div class="note">
+  <span class="callout-label">Anchor to what you know</span>
+  Where do Q, K, V come from? Each is the token's embedding pushed through <strong>its own learned
+  linear layer</strong> — three weight matrices <code>W<sub>Q</sub></code>, <code>W<sub>K</sub></code>,
+  <code>W<sub>V</sub></code>, trained by backprop. So <em>Q/K/V are just three linear projections of
+  the same vector</em> — nothing you haven't seen; the model learns three different "views" of each token.
+</div>
+
+<h2>The mechanism, in four steps</h2>
+
+<p>Take the token <code>"bank"</code>. It emits a <span style="color:var(--accent)"><strong>query</strong></span>.
+To decide how much each other token should reshape it:</p>
+
+<ol style="font-family:var(--font-sans);font-size:0.92rem;line-height:1.6">
+  <li><strong>Score.</strong> Dot the query with every token's <span style="color:var(--link)">key</span>.
+  A big dot product = "these point the same way" = <em>relevant</em>.</li>
+  <li><strong>Scale.</strong> Divide each score by <code>√d<sub>k</sub></code> (more on this below).</li>
+  <li><strong>Softmax.</strong> Turn the scores into weights that are positive and sum to 1 —
+  a set of <em class="term">attention weights</em>, one per token.</li>
+  <li><strong>Blend.</strong> Take the weighted sum of every token's <span style="color:var(--good)">value</span>.
+  That blended vector is <code>"bank"</code>'s new, context-aware representation.</li>
+</ol>
+
+<figure>
+<svg viewBox="0 0 660 300" role="img" aria-label="Diagram: the token bank queries all four tokens, producing attention weights, then blends their values into a contextual vector">
+  <style>
+    .lbl{font-family:'Helvetica Neue',Arial,sans-serif;font-size:12px;fill:#4a4a4a}
+    .tok{font-family:'Helvetica Neue',Arial,sans-serif;font-size:12px;fill:#1a1a1a;font-weight:700}
+    .wt{font-family:'Helvetica Neue',Arial,sans-serif;font-size:12px;fill:#a01818;font-weight:700}
+    .box{fill:#f4f2ec;stroke:#b9b3a0;stroke-width:1}
+    .kbox{fill:#eef4f8;stroke:#1a5276;stroke-width:1}
+    .vbox{fill:#eef7f1;stroke:#1e7a46;stroke-width:1}
+    .out{fill:#fbf3f2;stroke:#a01818;stroke-width:1.5}
+    .q{stroke:#a01818;fill:none}
+  </style>
+  <!-- the four tokens across the top -->
+  <text x="20" y="24" class="lbl">The sequence — each token offers a Key and a Value</text>
+  <g>
+    <rect x="20"  y="34" width="80" height="24" class="box"/><text x="60"  y="51" text-anchor="middle" class="tok">the</text>
+    <rect x="120" y="34" width="80" height="24" class="box"/><text x="160" y="51" text-anchor="middle" class="tok">river</text>
+    <rect x="220" y="34" width="80" height="24" class="box"/><text x="260" y="51" text-anchor="middle" class="tok">bank</text>
+    <rect x="320" y="34" width="80" height="24" class="box"/><text x="360" y="51" text-anchor="middle" class="tok">flooded</text>
+  </g>
+  <!-- keys row -->
+  <rect x="35"  y="70" width="50" height="18" class="kbox"/><text x="60"  y="83" text-anchor="middle" class="lbl">K</text>
+  <rect x="135" y="70" width="50" height="18" class="kbox"/><text x="160" y="83" text-anchor="middle" class="lbl">K</text>
+  <rect x="235" y="70" width="50" height="18" class="kbox"/><text x="260" y="83" text-anchor="middle" class="lbl">K</text>
+  <rect x="335" y="70" width="50" height="18" class="kbox"/><text x="360" y="83" text-anchor="middle" class="lbl">K</text>
+
+  <!-- query from bank -->
+  <rect x="235" y="120" width="50" height="20" class="out"/><text x="260" y="135" text-anchor="middle" class="wt">Q(bank)</text>
+  <text x="300" y="135" class="lbl">— dotted with each K →</text>
+
+  <!-- attention weights -->
+  <text x="20" y="176" class="lbl">Attention weights (softmax of scaled scores, sum = 1):</text>
+  <text x="60"  y="200" text-anchor="middle" class="wt">0.10</text>
+  <text x="160" y="200" text-anchor="middle" class="wt">0.55</text>
+  <text x="260" y="200" text-anchor="middle" class="wt">0.25</text>
+  <text x="360" y="200" text-anchor="middle" class="wt">0.10</text>
+
+  <!-- values row -->
+  <rect x="35"  y="212" width="50" height="18" class="vbox"/><text x="60"  y="225" text-anchor="middle" class="lbl">V</text>
+  <rect x="135" y="212" width="50" height="18" class="vbox"/><text x="160" y="225" text-anchor="middle" class="lbl">V</text>
+  <rect x="235" y="212" width="50" height="18" class="vbox"/><text x="260" y="225" text-anchor="middle" class="lbl">V</text>
+  <rect x="335" y="212" width="50" height="18" class="vbox"/><text x="360" y="225" text-anchor="middle" class="lbl">V</text>
+
+  <!-- weighted-sum arrows to output -->
+  <path d="M60,230  C60,270 470,250 500,255" class="q" marker-end="url(#ar)"/>
+  <path d="M160,230 C160,270 470,255 500,258" class="q" marker-end="url(#ar)"/>
+  <path d="M260,230 C260,270 470,260 500,261" class="q" marker-end="url(#ar)"/>
+  <path d="M360,230 C360,270 470,264 500,264" class="q" marker-end="url(#ar)"/>
+  <defs><marker id="ar" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto">
+    <path d="M0,0 L6,3 L0,6 Z" fill="#a01818"/></marker></defs>
+
+  <rect x="505" y="245" width="135" height="34" class="out"/>
+  <text x="572" y="266" text-anchor="middle" class="wt">contextual "bank"</text>
+  <text x="505" y="296" class="lbl">weighted sum of the Values</text>
+</svg>
+<figcaption>"bank" queries all four tokens. It attends most to <em>"river"</em> (0.55), so <em>river</em>'s value
+dominates the blend — and "bank" comes out meaning the water kind, not the money kind.</figcaption>
+</figure>
+
+<p>Those four steps are the entire mechanism. Written compactly, they are one line — the famous
+<em class="term">scaled dot-product attention</em> equation:</p>
+
+<pre><code>Attention(Q, K, V) = softmax( Q·Kᵀ / √d<sub>k</sub> ) · V</code></pre>
+
+<p>Read it left to right and it's exactly the four steps: <code>Q·Kᵀ</code> scores every query against every
+key, <code>/√d<sub>k</sub></code> scales, <code>softmax</code> makes weights, and <code>·V</code> blends the values.
+Every token does this at once, so one matrix multiply reshapes the whole sequence in parallel.<sup class="ref">2</sup></p>
+
+<div class="note">
+  <span class="callout-label">Why the ÷√dₖ?</span>
+  Dot products of long vectors get <strong>large</strong> as dimension grows, and huge scores push softmax
+  into a corner — one weight ≈ 1, the rest ≈ 0, and the gradient nearly vanishes so learning stalls.
+  Dividing by <code>√d<sub>k</sub></code> keeps the scores' spread roughly constant regardless of head size,
+  so softmax stays sensitive. It's a stability trick, not a conceptual pillar.<sup class="ref">2</sup>
+</div>
+
+<div class="payoff">
+  <span class="callout-label">The practical payoff — why long context is expensive and "lost in the middle" happens</span>
+  Every token queries <strong>every other token</strong>: for <code>n</code> tokens that's <code>n²</code>
+  score computations. Double the prompt and attention work <em>quadruples</em> — this is the core reason
+  long context costs more and runs slower, and why context limits exist at all.<sup class="ref">3</sup>
+  It also hints at <strong>"lost in the middle"</strong>: attention is a competition for a fixed budget of
+  weight (softmax sums to 1), so the more tokens compete, the easier it is for the middle of a long prompt
+  to get starved. You can now reason about both from the mechanism, not folklore.
+</div>
+
+<h2>Check yourself</h2>
+<p>Answer from memory first — recall is what builds retention.</p>
+<div id="mcq"></div>
+
+<h3>Now sort the roles (Q / K / V interleaving)</h3>
+<p>For each description, tap which of the three it defines. Jumping between them is what makes the
+distinction stick.</p>
+<div id="classify"></div>
+
+<div class="primary">
+  <span class="callout-label">Primary source — watch this next</span>
+  <a href="https://www.youtube.com/watch?v=eMlx5fFNoYc">3Blue1Brown — "Attention in transformers" (ch. 6)</a>
+  is the single best visual explanation of Q/K/V and this exact soft-lookup picture. Pair it with the
+  attention section of <a href="https://jalammar.github.io/illustrated-transformer/">The Illustrated Transformer</a>
+  for the matrix-shapes view.
+</div>
+
+<h2>The one-sentence win</h2>
+<p>You can now explain a contextual embedding mechanically: each token emits a
+<strong>query</strong>, scores it against every token's <strong>key</strong>, softmaxes those into
+<strong>attention weights</strong>, and blends the <strong>values</strong> — <code>softmax(QKᵀ/√dₖ)·V</code> —
+and you know that "attends to everything" is why long context is quadratically expensive.</p>
+
+<div class="ask">
+  💬 Ask me anything: "walk me through QKᵀ with tiny numbers", "why three separate matrices instead of one?",
+  "how does this become <em>multi-head</em> attention?", or "show the causal mask." I'm your teacher.
+</div>
+
+<nav class="lesson-nav">
+  <span><a href="0002-embeddings.html">← Lesson 2: Embeddings</a> · <a href="../reference/GLOSSARY.html">📖 Glossary</a></span>
+  <span>Next → <em>Lesson 4: Multi-head attention</em> (ask me to build it)</span>
+</nav>
+
+<hr style="border:none;border-top:1px solid var(--rule);margin:2.5rem 0 1rem">
+<p class="cite"><sup class="ref">1</sup> The "soft/differentiable dictionary lookup" framing follows
+<a href="https://jalammar.github.io/illustrated-transformer/">The Illustrated Transformer</a> and
+<a href="https://www.youtube.com/watch?v=eMlx5fFNoYc">3Blue1Brown ch. 6</a>.<br>
+<sup class="ref">2</sup> The equation and the <code>√d<sub>k</sub></code> scaling are from
+<a href="https://arxiv.org/abs/1706.03762">Vaswani et al., "Attention Is All You Need" (2017)</a>, §3.2.1.<br>
+<sup class="ref">3</sup> The <code>O(n²)</code> cost of full self-attention is what later variants (FlashAttention,
+sliding-window, GQA — a future lesson) try to soften; see <a href="https://arxiv.org/abs/1706.03762">the paper</a>.</p>
+
+<script>
+document.addEventListener("DOMContentLoaded", () => {
+  Quiz.mcq("mcq", [
+    {
+      q: "What does a token's Query vector encode?",
+      options: [
+        "The information this token is seeking",
+        "The information this token will contribute",
+        "The absolute position this token holds"
+      ],
+      correct: 0,
+      why: "Right — the Query is 'what am I looking for'; Value is what it contributes."
+    },
+    {
+      q: "Why are the scores divided by √dₖ?",
+      options: [
+        "To keep softmax from saturating hard",
+        "To make each weight sum higher",
+        "To turn the keys into probabilities"
+      ],
+      correct: 0,
+      why: "Right — it keeps score spread stable so softmax stays sensitive and gradients survive."
+    },
+    {
+      q: "Why does attention cost grow quadratically?",
+      options: [
+        "Every token attends to every token",
+        "Every token needs a fresh embedding",
+        "Every layer doubles the token count"
+      ],
+      correct: 0,
+      why: "Right — n tokens each scoring n others = n² work; double the prompt, quadruple the cost."
+    }
+  ]);
+
+  Quiz.classify("classify", {
+    categories: ["Query", "Key", "Value"],
+    items: [
+      { text: "Broadcast to ask what info is wanted.",
+        answer: "Query", why: "The query states what this token seeks." },
+      { text: "Advertised so queries can match against it.",
+        answer: "Key", why: "Keys are what queries are scored against." },
+      { text: "The payload blended into the final result.",
+        answer: "Value", why: "Values are what the weighted sum mixes." },
+      { text: "Dotted with every key to make scores.",
+        answer: "Query", why: "The query · keys step produces the raw scores." }
+    ]
+  });
+});
+</script>

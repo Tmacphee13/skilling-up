@@ -65,6 +65,30 @@ Grows as we go — terms are tagged with the lesson that introduced them.</p>
   <dd>Similarity of two vectors measured by the angle between them (1 = same direction, 0 =
   unrelated). The standard ranking metric for sentence-embedding search. <span class="from">Lesson 2</span></dd>
 
+  <dt>Self-attention</dt>
+  <dd>The operation that lets each token pull in information from the other tokens in the same
+  sequence, weighted by relevance — turning static token embeddings into
+  <em class="term">contextual</em> ones. <span class="from">Lesson 3</span></dd>
+
+  <dt>Query / Key / Value (Q/K/V)</dt>
+  <dd>Three learned linear projections of each token's vector. The <strong>Query</strong> is "what
+  I'm looking for," the <strong>Key</strong> is "what I offer for matching," the <strong>Value</strong>
+  is "what I contribute if picked." Attention is a soft dictionary lookup over these.
+  <span class="from">Lesson 3</span></dd>
+
+  <dt>Attention weights</dt>
+  <dd>The per-token relevance weights produced by softmax over the scaled query·key scores. Positive
+  and sum to 1, so attention is a competition for a fixed budget of weight. <span class="from">Lesson 3</span></dd>
+
+  <dt>Scaled dot-product attention</dt>
+  <dd>The core formula <code>softmax(Q·Kᵀ / √d<sub>k</sub>)·V</code>: score queries against keys,
+  scale by <code>√d<sub>k</sub></code> for stability, softmax into weights, blend the values. Its
+  every-token-attends-to-every-token nature costs <code>O(n²)</code>. <span class="from">Lesson 3</span></dd>
+
+  <dt>d_k</dt>
+  <dd>The dimensionality of the Query/Key vectors within an attention head. Scores are divided by
+  <code>√d<sub>k</sub></code> to keep softmax from saturating. <span class="from">Lesson 3</span></dd>
+
 </dl>
 
 <div class="ask">💬 Something here not click? Ask your teacher — that's what I'm here for.</div>
